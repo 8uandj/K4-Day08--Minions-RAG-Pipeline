@@ -1,24 +1,28 @@
 """
-Task 6 — Lexical Search Module (BM25).
+Task 6 — Lexical Search Module (TF-IDF + Cosine Similarity).
 
-Mặc định sử dụng BM25. Nếu dùng phương pháp khác (TF-IDF, Elasticsearch,
-Weaviate BM25 built-in), hãy giải thích cơ chế trong buổi demo → +5 bonus.
+Phương pháp: TF-IDF vectorization + cosine similarity (scikit-learn).
+
+Tại sao đổi từ BM25 sang TF-IDF:
+    - BM25 tốt cho document dài/ngắn không đều (length normalization),
+      nhưng đòi hỏi tuning k1, b. Với corpus nhỏ và query ngắn (vài từ),
+      TF-IDF cosine cho kết quả tương đương và đơn giản hơn.
+    - TF-IDF cũng là "lexical/sparse retrieval" — giữ đúng tinh thần Task 6.
+
+Cách hoạt động của TF-IDF:
+    - TF (Term Frequency): tần suất 1 từ xuất hiện trong 1 document.
+    - IDF (Inverse Document Frequency): log(N / (1 + df)) — từ hiếm → trọng số cao.
+    - Cosine similarity: so vector query với vector mỗi document → score ∈ [0, 1].
 
 Cài đặt:
-    pip install rank-bm25
-
-BM25 hoạt động thế nào:
-    - Term Frequency (TF): từ xuất hiện nhiều trong document → điểm cao
-    - Inverse Document Frequency (IDF): từ hiếm → quan trọng hơn
-    - Document length normalization: document dài không bị ưu tiên quá mức
-    - Formula: score(q,d) = Σ IDF(qi) * (tf(qi,d) * (k1+1)) / (tf(qi,d) + k1*(1-b+b*|d|/avgdl))
-    - k1=1.5 (term saturation), b=0.75 (length normalization)
+    pip install scikit-learn
 
 Implementation notes:
-    - Tokenizer tiếng Việt: lowercase + strip punctuation + normalize NFC (tránh
-      "đột quỵ" (NFC) vs "đột quỵ" (NFD) thành 2 token khác nhau).
+    - Tokenizer tiếng Việt: lowercase + strip punctuation + normalize NFC.
     - Corpus được load lazily từ data/standardized/ lần đầu gọi lexical_search().
     - Có thể inject corpus qua set_corpus() để test không cần I/O.
+    - TfidfVectorizer dùng analyzer='word' + token_pattern để match tokenizer
+      tiếng Việt (giữ chữ Unicode + số).
 """
 
 import re
@@ -30,7 +34,8 @@ from pathlib import Path
 # ---------------------------------------------------------------------------
 
 CORPUS: list[dict] = []  # List of {'content': str, 'metadata': dict}
-_BM25 = None  # rank_bm25.BM25Okapi instance (rebuilt khi corpus đổi)
+_VECTORIZER = None  # sklearn TfidfVectorizer (rebuilt khi corpus đổi)
+_DOC_VECTORS = None  # CSR matrix: vector TF-IDF của từng document
 
 
 # ---------------------------------------------------------------------------
@@ -54,6 +59,11 @@ def _tokenize(text: str) -> list[str]:
         return []
     text = unicodedata.normalize("NFC", text).lower()
     return _TOKEN_PATTERN.findall(text)
+
+
+def _tokenize_join(text: str) -> str:
+    """Ghép token bằng space — dùng cho TfidfVectorizer analyzer='word'."""
+    return " ".join(_tokenize(text))
 
 
 # ---------------------------------------------------------------------------
@@ -85,25 +95,28 @@ def _load_corpus_from_disk() -> list[dict]:
 def set_corpus(corpus: list[dict]) -> None:
     """
     Inject corpus từ bên ngoài (hữu ích cho test).
-    Reset BM25 index cho lần search kế tiếp.
+    Reset TF-IDF index cho lần search kế tiếp.
     """
-    global CORPUS, _BM25
+    global CORPUS, _VECTORIZER, _DOC_VECTORS
     CORPUS = list(corpus)
-    _BM25 = None
+    _VECTORIZER = None
+    _DOC_VECTORS = None
 
 
-def build_bm25_index(corpus: list[dict] | None = None):
+def _build_tfidf_index(corpus: list[dict] | None = None):
     """
-    Xây dựng BM25 index từ corpus.
+    Xây dựng TF-IDF index từ corpus.
 
     Args:
         corpus: List of {'content': str, 'metadata': dict}.
                 Nếu None, dùng CORPUS global (và load từ disk nếu rỗng).
 
     Returns:
-        BM25Okapi instance, hoặc None nếu corpus rỗng.
+        (vectorizer, doc_vectors) — vectorizer là TfidfVectorizer đã fit,
+                doc_vectors là sparse matrix (n_docs, n_features).
+        Trả về (None, None) nếu corpus rỗng.
     """
-    from rank_bm25 import BM25Okapi
+    from sklearn.feature_extraction.text import TfidfVectorizer
 
     if corpus is not None:
         target = corpus
@@ -113,19 +126,29 @@ def build_bm25_index(corpus: list[dict] | None = None):
         target = _load_corpus_from_disk()
         if not target:
             # Trả về None thay vì crash — test sẽ skip
-            return None
+            return None, None
 
-    tokenized_corpus = [_tokenize(doc["content"]) for doc in target]
-    bm25 = BM25Okapi(tokenized_corpus)
-    return bm25
+    # Pre-tokenize để áp dụng cùng logic với tokenizer tiếng Việt
+    tokenized_docs = [_tokenize_join(doc["content"]) for doc in target]
+
+    vectorizer = TfidfVectorizer(
+        analyzer="word",
+        token_pattern=r"[^\W_]+",  # giữ chữ Unicode + số
+        lowercase=True,
+        norm="l2",                # chuẩn hóa L2 để cosine similarity đúng nghĩa
+        sublinear_tf=True,        # áp dụng log(1+tf) — giảm ảnh hưởng term lặp lại nhiều
+        min_df=1,                 # giữ cả từ hiếm (corpus nhỏ)
+    )
+    doc_vectors = vectorizer.fit_transform(tokenized_docs)
+    return vectorizer, doc_vectors
 
 
-def _get_bm25():
-    """Lấy BM25 index; build lazy nếu chưa có."""
-    global _BM25
-    if _BM25 is None:
-        _BM25 = build_bm25_index()
-    return _BM25
+def _get_tfidf():
+    """Lấy TF-IDF index; build lazy nếu chưa có."""
+    global _VECTORIZER, _DOC_VECTORS
+    if _VECTORIZER is None or _DOC_VECTORS is None:
+        _VECTORIZER, _DOC_VECTORS = _build_tfidf_index()
+    return _VECTORIZER, _DOC_VECTORS
 
 
 # ---------------------------------------------------------------------------
@@ -134,7 +157,7 @@ def _get_bm25():
 
 def lexical_search(query: str, top_k: int = 10) -> list[dict]:
     """
-    Tìm kiếm từ khóa sử dụng BM25.
+    Tìm kiếm từ khóa sử dụng TF-IDF + cosine similarity.
 
     Args:
         query: Câu truy vấn
@@ -143,26 +166,33 @@ def lexical_search(query: str, top_k: int = 10) -> list[dict]:
     Returns:
         List of {
             'content': str,
-            'score': float,      # BM25 score
+            'score': float,      # cosine similarity ∈ [0, 1]
             'metadata': dict
         }
-        Sorted by score descending. Có thể trả về [] nếu corpus rỗng.
+        Sorted by score descending. Có thể trả về [] nếu corpus rỗng
+        hoặc không có document nào match.
     """
+    from sklearn.metrics.pairwise import cosine_similarity
+
     # Đảm bảo corpus đã load
     if not CORPUS:
         loaded = _load_corpus_from_disk()
         if loaded:
             set_corpus(loaded)
 
-    bm25 = _get_bm25()
-    if bm25 is None or not CORPUS:
+    vectorizer, doc_vectors = _get_tfidf()
+    if vectorizer is None or doc_vectors is None or not CORPUS:
         return []
 
     tokenized_query = _tokenize(query)
     if not tokenized_query:
         return []
 
-    scores = bm25.get_scores(tokenized_query)
+    # Vector hóa query bằng cùng vectorizer đã fit trên corpus
+    query_vec = vectorizer.transform([_tokenize_join(query)])
+
+    # Cosine similarity: query (1, F) × doc_vectors.T (F, N) → (1, N)
+    scores = cosine_similarity(query_vec, doc_vectors).ravel()
 
     # Lấy top_k chỉ số có score > 0, sorted desc
     indexed = [(i, float(s)) for i, s in enumerate(scores) if s > 0]
@@ -185,5 +215,7 @@ def lexical_search(query: str, top_k: int = 10) -> list[dict]:
 
 if __name__ == "__main__":
     results = lexical_search("phương thức thanh toán shopee", top_k=5)
+    if not results:
+        print("Không có kết quả nào match (corpus rỗng hoặc query không khớp).")
     for r in results:
-        print(f"[{r['score']:.3f}] {r['content'][:100]}...")
+        print(f"[{r['score']:.3f}] {r['metadata'].get('source', '?')}: {r['content'][:100]}...")
