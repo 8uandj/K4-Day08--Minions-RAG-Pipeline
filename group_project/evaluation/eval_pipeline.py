@@ -19,8 +19,13 @@ chừng, thử giảm xuống subset 5 câu để chạy kịp trong buổi, ho�
 1000 request/ngày.
 """
 
+import importlib.util
 import json
 import math
+import os
+import sys
+import types
+import warnings
 from contextlib import contextmanager
 from pathlib import Path
 from typing import Any
@@ -89,30 +94,121 @@ def evaluate_with_ragas(rag_pipeline, golden_dataset: list[dict]) -> dict:
 
     pip install ragas
     """
-    from ragas import evaluate
-    from ragas.metrics import (
-        faithfulness,
-        answer_relevancy,
-        context_recall,
-        context_precision,
-    )
-    from datasets import Dataset
+    evaluate, metrics, Dataset = _load_ragas_components()
+    evaluator_llm, evaluator_embeddings = _build_ragas_models()
 
     eval_data = {"question": [], "answer": [], "contexts": [], "ground_truth": []}
 
-    for item in golden_dataset:
+    total = len(golden_dataset)
+    for index, item in enumerate(golden_dataset, 1):
+        print(f"  [{index}/{total}] Generating: {item['question']}", flush=True)
         result = rag_pipeline.generate_with_citation(item["question"])
+        if not isinstance(result, dict) or "answer" not in result:
+            raise ValueError(
+                "generate_with_citation() must return a dict containing 'answer'"
+            )
         eval_data["question"].append(item["question"])
         eval_data["answer"].append(result["answer"])
-        eval_data["contexts"].append([c["content"] for c in result["sources"]])
+        eval_data["contexts"].append([
+            source["content"]
+            for source in result.get("sources", [])
+            if source.get("content")
+        ])
         eval_data["ground_truth"].append(item["expected_answer"])
 
     dataset = Dataset.from_dict(eval_data)
     result = evaluate(
         dataset,
-        metrics=[faithfulness, answer_relevancy, context_recall, context_precision],
+        metrics=metrics,
+        llm=evaluator_llm,
+        embeddings=evaluator_embeddings,
     )
     return result.to_pandas()
+
+
+def _load_ragas_components():
+    """Import RAGAS with compatibility for LangChain Community >= 0.4."""
+    # RAGAS 0.4.3 still imports the removed ChatVertexAI module even when the
+    # evaluator uses OpenAI. Provide the equivalent legacy type so importing
+    # unrelated OpenAI metrics does not fail.
+    vertex_module = "langchain_community.chat_models.vertexai"
+    if (
+        vertex_module not in sys.modules
+        and importlib.util.find_spec(vertex_module) is None
+    ):
+        try:
+            from langchain_community.llms.vertexai import VertexAI
+        except ImportError:
+            pass
+        else:
+            compatibility_module = types.ModuleType(vertex_module)
+            compatibility_module.ChatVertexAI = VertexAI
+            sys.modules[vertex_module] = compatibility_module
+
+    try:
+        from datasets import Dataset
+        from ragas import evaluate
+        # RAGAS 0.4 keeps these instances for evaluate() compatibility while
+        # recommending a newer collections API that is not accepted by the
+        # legacy evaluate() entry point yet.
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", DeprecationWarning)
+            from ragas.metrics import (
+                faithfulness,
+                answer_relevancy,
+                context_recall,
+                context_precision,
+            )
+    except (ImportError, ModuleNotFoundError) as exc:
+        raise RuntimeError(
+            "RAGAS dependencies are incompatible. Reinstall the evaluation "
+            "dependencies from requirements.txt in a clean virtual environment."
+        ) from exc
+
+    return evaluate, [
+        faithfulness,
+        answer_relevancy,
+        context_recall,
+        context_precision,
+    ], Dataset
+
+
+def _build_ragas_models():
+    """Create RAGAS LLM/embedding clients for OpenAI or OpenRouter."""
+    from openai import OpenAI
+    from ragas.embeddings import OpenAIEmbeddings
+    from ragas.llms import llm_factory
+
+    openrouter_key = os.getenv("OPENROUTER_API_KEY")
+    api_key = openrouter_key or os.getenv("OPENAI_API_KEY")
+    if not api_key:
+        raise RuntimeError(
+            "Evaluation requires OPENAI_API_KEY or OPENROUTER_API_KEY"
+        )
+
+    client_kwargs = {"api_key": api_key}
+    if openrouter_key:
+        client_kwargs["base_url"] = "https://openrouter.ai/api/v1"
+    client = OpenAI(
+        **client_kwargs,
+        timeout=float(os.getenv("OPENAI_TIMEOUT", "60")),
+        max_retries=int(os.getenv("OPENAI_MAX_RETRIES", "2")),
+    )
+
+    model = os.getenv("EVALUATOR_MODEL", "gpt-4o-mini")
+    embedding_model = os.getenv(
+        "EVALUATOR_EMBEDDING_MODEL", "text-embedding-3-small"
+    )
+    if client_kwargs.get("base_url"):
+        if not model.startswith("openai/"):
+            model = f"openai/{model}"
+        if not embedding_model.startswith("openai/"):
+            embedding_model = f"openai/{embedding_model}"
+
+    return (
+        llm_factory(model, client=client),
+        OpenAIEmbeddings(client=client, model=embedding_model),
+    )
 
 
 # =============================================================================
@@ -155,6 +251,25 @@ def evaluate_with_trulens(rag_pipeline, golden_dataset: list[dict]) -> dict:
 # A/B Comparison
 # =============================================================================
 
+class GenerationPipelineAdapter:
+    """Expose the generation function through the interface used by RAGAS."""
+
+    def __init__(self, generation_function, **config):
+        self._generation_function = generation_function
+        self.config = {
+            "top_k": 5,
+            "use_reranking": True,
+            "alpha": 0.5,
+            **config,
+        }
+
+    def configure(self, **params):
+        """Return an independently configured adapter for an A/B run."""
+        return type(self)(self._generation_function, **{**self.config, **params})
+
+    def generate_with_citation(self, question: str) -> dict:
+        return self._generation_function(question, **self.config)
+
 def compare_configs(rag_pipeline, golden_dataset: list[dict]):
     """
     So sánh A/B giữa ít nhất 2 configs.
@@ -175,6 +290,7 @@ def compare_configs(rag_pipeline, golden_dataset: list[dict]):
 
     results = {}
     for config_name, params in configs.items():
+        print(f"\nEvaluating config: {config_name} {params}", flush=True)
         # Khôi phục config ban đầu sau mỗi lần chạy để kết quả B không bị ảnh
         # hưởng bởi config A (và để caller tiếp tục dùng pipeline như trước).
         with _temporary_pipeline_config(rag_pipeline, params) as configured_pipeline:
@@ -190,7 +306,6 @@ def compare_configs(rag_pipeline, golden_dataset: list[dict]):
 # =============================================================================
 
 def export_results(results: dict, comparison: dict):
-    """Export evaluation results to results.md"""
     """
     Export kết quả tổng và so sánh A/B dưới dạng Markdown.
 
@@ -453,15 +568,17 @@ def _markdown_cell(value: Any) -> str:
 
 if __name__ == "__main__":
     golden_dataset = load_golden_dataset()
+    max_cases = int(os.getenv("EVAL_MAX_CASES", "0"))
+    if max_cases > 0:
+        golden_dataset = golden_dataset[:max_cases]
     print(f"Loaded {len(golden_dataset)} test cases")
 
     from src.task10_generation import generate_with_citation
-    #
-    # Chọn 1 framework:
-    # results = evaluate_with_deepeval(pipeline, golden_dataset)
-    results = evaluate_with_ragas(pipeline, golden_dataset)
-    # results = evaluate_with_trulens(pipeline, golden_dataset)
-    #
+
+    pipeline = GenerationPipelineAdapter(generate_with_citation)
     comparison = compare_configs(pipeline, golden_dataset)
+    # Config hybrid là kết quả tổng mặc định; không chạy lần thứ ba để tránh
+    # lãng phí quota LLM.
+    results = comparison["hybrid_rerank"]
     export_results(results, comparison)
-    print("⚠ Implement evaluation logic and run again!")
+    print(f"✓ Results exported to: {RESULTS_PATH}")
