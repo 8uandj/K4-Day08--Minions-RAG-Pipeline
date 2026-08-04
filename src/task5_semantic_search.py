@@ -80,11 +80,11 @@ def _empty_or_nested(values: Any, index: int) -> list[Any]:
 
 
 def semantic_search(query: str, top_k: int = 10) -> list[dict]:
-    """Search ChromaDB with BGE-M3 and return results sorted by similarity.
+    """Search ChromaDB with OpenAI embeddings and sort by similarity.
 
     Query expansion is enabled by default.  Each variant is embedded with the
-    same BGE-M3 model used for indexing; duplicate chunks are fused by keeping
-    their best cosine similarity.
+    same OpenAI embedding model used for indexing; duplicate chunks are fused
+    by keeping their best cosine similarity.
     """
 
     query = query.strip()

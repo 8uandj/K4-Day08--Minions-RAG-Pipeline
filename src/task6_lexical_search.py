@@ -64,6 +64,29 @@ _FALLBACK_STOPWORDS = {
     "o", "ở", "tham", "the", "thế", "thi", "thì", "trong", "va", "và", "ve",
     "về", "viet", "việt",
 }
+_LOCATION_MARKERS = (
+    "ha giang",
+    "da nang",
+    "da lat",
+    "quy nhon",
+    "ha noi",
+    "hoi an",
+    "hue",
+    "nha trang",
+    "phong nha",
+    "phu quoc",
+    "can tho",
+)
+_DOMAIN_MARKERS = (
+    "ha giang",
+    "da nang",
+    "e visa",
+    "visa",
+    "lich trinh",
+    "am thuc",
+    "an toan",
+    "suc khoe",
+)
 
 
 def _tokenize(text: str) -> list[str]:
@@ -125,47 +148,90 @@ def _normalise_for_phrase(text: str) -> str:
     return " ".join(_tokenize(text))
 
 
+def _adjust_domain_score(query: str, content: str, metadata: dict, score: float) -> float:
+    """
+    Apply light domain/location calibration on top of lexical cosine.
+
+    TF-IDF is intentionally generic. For travel RAG, a query with an explicit
+    location should prefer chunks whose source/location is about that place, not
+    a different itinerary that merely shares words like "ăn", "đi", "tham quan".
+    """
+
+    query_phrase = _normalise_for_phrase(query)
+    content_phrase = _normalise_for_phrase(content[:4000])
+    source_phrase = _normalise_for_phrase(
+        " ".join(
+            str(metadata.get(key, ""))
+            for key in ("source", "source_path", "title", "location", "section")
+        )
+    )
+    adjusted = float(score)
+    for marker in _DOMAIN_MARKERS:
+        if marker in query_phrase and (
+            marker in content_phrase or marker in source_phrase
+        ):
+            adjusted += 0.08
+    for location in _LOCATION_MARKERS:
+        if location not in query_phrase:
+            continue
+        if location in source_phrase:
+            adjusted += 0.25
+        elif location in content_phrase:
+            adjusted += 0.08
+        else:
+            adjusted *= 0.25
+    return adjusted
+
+
 # ---------------------------------------------------------------------------
 # Corpus loading
 # ---------------------------------------------------------------------------
 
 def _load_corpus_from_disk() -> list[dict]:
     """
-    Load toàn bộ .md files từ data/standardized/ (nếu tồn tại).
+    Load corpus chunk-level từ data/standardized/ (nếu tồn tại).
 
-    Mỗi file .md trở thành 1 document:
+    Mỗi chunk Markdown trở thành 1 document lexical:
         {
-            "content": <toàn bộ text của file .md>,
-            "metadata": {
-                "source": <tên file, vd: "luat-du-lich.md">,
-                "type": "legal" | "news"  # suy ra từ thư mục cha
-            }
+            "content": <chunk content>,
+            "metadata": <metadata giống Task 4>
         }
 
     Lưu ý:
-        - KHÔNG đọc file ở thư mục `landing/` (file gốc PDF/HTML) — chỉ đọc
-          file đã convert sang markdown trong `standardized/`. Lý do: file
-          markdown đã sạch (không cần parser PDF phức tạp), chạy nhanh.
-        - Đệm bằng `errors="ignore"` cho fallback nếu file có byte lỗi
-          encoding — vẫn load được phần lớn nội dung.
+        - Lexical search phải dùng cùng đơn vị với dense search: chunk, không
+          phải nguyên file. Nếu sparse trả nguyên file, RRF sẽ dễ kéo một bài
+          dài nhưng không đúng trọng tâm lên trên dense chunks tốt.
+        - Dùng lại chunking Task 4 để metadata/citation đồng nhất giữa dense
+          và sparse retrieval.
     """
-    standardized_dir = Path(__file__).parent.parent / "data" / "standardized"
-    if not standardized_dir.exists():
-        return []
+    try:
+        from .task4_chunking_indexing import chunk_documents, load_documents
 
+        documents = load_documents()
+        if documents:
+            return chunk_documents(documents)
+    except Exception:
+        # Fallback tối thiểu cho môi trường thiếu dependency chunker.
+        pass
+
+    standardized_dir = Path(__file__).parent.parent / "data" / "standardized"
     docs: list[dict] = []
-    for md_file in standardized_dir.rglob("*.md"):
-        try:
-            content = md_file.read_text(encoding="utf-8")
-        except UnicodeDecodeError:
-            # File không phải UTF-8 thuần → đọc lại, bỏ qua byte lỗi
-            content = md_file.read_text(encoding="utf-8", errors="ignore")
-        # Phân loại document: parent dir chứa "legal" → legal, ngược lại → news
-        doc_type = "legal" if "legal" in str(md_file.parent).lower() else "news"
-        docs.append({
-            "content": content,
-            "metadata": {"source": md_file.name, "type": doc_type},
-        })
+    if standardized_dir.exists():
+        for md_file in standardized_dir.rglob("*.md"):
+            try:
+                content = md_file.read_text(encoding="utf-8")
+            except UnicodeDecodeError:
+                content = md_file.read_text(encoding="utf-8", errors="ignore")
+            doc_type = "legal" if "legal" in str(md_file.parent).lower() else "news"
+            docs.append({
+                "content": _strip_front_matter(content),
+                "metadata": {
+                    "source": md_file.name,
+                    "source_path": md_file.relative_to(Path(__file__).parent.parent).as_posix(),
+                    "doc_type": doc_type,
+                    "type": doc_type,
+                },
+            })
     return docs
 
 
@@ -298,37 +364,7 @@ def _fallback_lexical_search(query: str, top_k: int = 10) -> list[dict]:
         query_coverage = len(overlap) / len(query_set)
         doc_coverage = len(overlap) / max(len(doc_set), 1)
         score = 0.85 * query_coverage + 0.15 * doc_coverage
-        content_phrase = _normalise_for_phrase(content[:4000])
-        source_phrase = _normalise_for_phrase(str(doc.get("metadata", {}).get("source", "")))
-        for marker in (
-            "ha giang",
-            "da nang",
-            "e visa",
-            "visa",
-            "lich trinh",
-            "am thuc",
-            "an toan",
-            "suc khoe",
-        ):
-            if marker in query_phrase and marker in content_phrase:
-                score += 0.2
-        for location in (
-            "ha giang",
-            "da nang",
-            "da lat",
-            "quy nhon",
-            "ha noi",
-            "hoi an",
-            "hue",
-            "nha trang",
-            "phong nha",
-            "phu quoc",
-            "can tho",
-        ):
-            if location in query_phrase and location in source_phrase:
-                score += 0.35
-            if location in query_phrase and location not in content_phrase:
-                score *= 0.35
+        score = _adjust_domain_score(query, content, doc.get("metadata", {}), score)
         scored.append(
             (
                 float(score),
@@ -410,7 +446,19 @@ def lexical_search(query: str, top_k: int = 10) -> list[dict]:
     # Lấy top_k chỉ số có score > 0, sorted desc.
     # Filter score > 0 trước sort để tránh kết quả "match giả" do vector thưa
     # (vector 0 = cosine 0 = không liên quan).
-    indexed = [(i, float(s)) for i, s in enumerate(scores) if s > 0]
+    indexed = [
+        (
+            i,
+            _adjust_domain_score(
+                query,
+                CORPUS[i]["content"],
+                CORPUS[i].get("metadata", {}),
+                float(s),
+            ),
+        )
+        for i, s in enumerate(scores)
+        if s > 0
+    ]
     indexed.sort(key=lambda x: x[1], reverse=True)
     top = indexed[:top_k]
 

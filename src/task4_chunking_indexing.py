@@ -17,12 +17,12 @@ Why this chunking strategy:
       some sections are still too long for retrieval and LLM context. A stable
       size and overlap improves recall without duplicating too much content.
 
-Why BGE-M3 embeddings:
+Why OpenAI embeddings:
     - The corpus is mixed Vietnamese and English, and user questions may also
-      be bilingual. BGE-M3 is multilingual and strong for dense retrieval in
-      this exact "semantic meaning over exact keyword" setting.
-    - Embeddings are normalized, so Chroma cosine distance can be converted
-      back to a simple similarity score in Task 5.
+      be bilingual. OpenAI embedding models handle multilingual semantic
+      matching well without downloading a large local model.
+    - Using OpenAI avoids the local ``sentence_transformers`` dependency and
+      lets teammates reproduce indexing with only ``OPENAI_API_KEY`` in ``.env``.
 
 Why ChromaDB:
     - Chroma is local and persistent, which fits a student RAG project: no
@@ -42,7 +42,6 @@ import os
 import re
 import unicodedata
 from datetime import datetime, timezone
-from functools import lru_cache
 from pathlib import Path
 from typing import Any, Iterable
 
@@ -50,6 +49,8 @@ from dotenv import load_dotenv
 
 
 PROJECT_DIR = Path(__file__).resolve().parent.parent
+load_dotenv(PROJECT_DIR / ".env")
+
 STANDARDIZED_DIR = PROJECT_DIR / "data" / "standardized"
 CHROMA_DIR = PROJECT_DIR / "chroma_db"
 
@@ -64,17 +65,27 @@ CHUNK_OVERLAP = 120
 CHUNKING_METHOD = "markdown_header+recursive"
 
 # Embedding choice:
-# BGE-M3 is selected because it handles Vietnamese/English semantic matching
-# well, letting queries like "đi Hà Giang bằng xe máy an toàn không" match
-# English guide text that mentions "motorbike", "road trip", and "safety".
-EMBEDDING_MODEL = "BAAI/bge-m3"
-EMBEDDING_DIM = 1024
+# OpenAI keeps indexing lightweight for the team: no local transformer download,
+# no GPU/CPU model setup, and the key is read from .env as OPENAI_API_KEY.
+EMBEDDING_PROVIDER = "openai"
+EMBEDDING_MODEL = os.getenv("OPENAI_EMBEDDING_MODEL", "text-embedding-3-small")
+_OPENAI_EMBEDDING_DIMS = {
+    "text-embedding-3-small": 1536,
+    "text-embedding-3-large": 3072,
+    "text-embedding-ada-002": 1536,
+}
+EMBEDDING_DIM = int(
+    os.getenv(
+        "OPENAI_EMBEDDING_DIM",
+        str(_OPENAI_EMBEDDING_DIMS.get(EMBEDDING_MODEL, 1536)),
+    )
+)
 
 # Vector-store choice:
 # ChromaDB keeps the index local and reproducible for the lab, while storing
 # metadata such as source/title/location that downstream citation needs.
 VECTOR_STORE = "chromadb"
-COLLECTION_NAME = "smart_travel_docs"
+COLLECTION_NAME = os.getenv("CHROMA_COLLECTION_NAME", "smart_travel_docs_openai")
 INDEX_BATCH_SIZE = 256
 
 HEADERS_TO_SPLIT_ON = [
@@ -336,68 +347,55 @@ def chunk_documents(documents: list[dict]) -> list[dict]:
 
 
 def get_embedding_provider() -> str:
-    """Return the selected provider and guard the BGE/OpenAI mismatch."""
+    """Return the selected provider and require OpenAI for this pipeline."""
 
-    load_dotenv(PROJECT_DIR / ".env")
-    provider = os.getenv("EMBEDDING_PROVIDER", "sentence_transformers").strip().lower()
-    aliases = {"sentence-transformers": "sentence_transformers", "local": "sentence_transformers"}
+    provider = (
+        os.getenv("EMBEDDING_PROVIDER", EMBEDDING_PROVIDER)
+        .split("#", 1)[0]
+        .strip()
+        .lower()
+    )
+    aliases = {"openai-api": "openai"}
     provider = aliases.get(provider, provider)
-    if provider != "sentence_transformers":
+    if provider != "openai":
         raise ValueError(
-            "BAAI/bge-m3 is a local SentenceTransformers model. Set "
-            "EMBEDDING_PROVIDER=sentence_transformers before indexing."
+            "Task 4 is configured for OpenAI embeddings. Set "
+            "EMBEDDING_PROVIDER=openai and OPENAI_API_KEY in .env before indexing."
         )
     return provider
 
 
-@lru_cache(maxsize=1)
 def get_embedding_model():
-    """Load BGE-M3 lazily so imports and chunk-only tests stay fast."""
-
-    # Transformers may otherwise start a background 2.27 GB safetensors
-    # conversion even though this repository already provides .bin weights.
-    os.environ.setdefault("DISABLE_SAFETENSORS_CONVERSION", "true")
-    from sentence_transformers import SentenceTransformer
+    """Create an OpenAI client lazily so chunk-only tests stay fast."""
 
     get_embedding_provider()
-    device = os.getenv("EMBEDDING_DEVICE") or None
-    # The upstream repository publishes equivalent .bin and .safetensors
-    # weights.  Pinning one format avoids downloading both 2.27 GB files.
-    model_options = {
-        "device": device,
-        "model_kwargs": {"use_safetensors": False},
-    }
-    try:
-        # Avoid unnecessary Hub HEAD requests once all model files are cached.
-        return SentenceTransformer(
-            EMBEDDING_MODEL,
-            local_files_only=True,
-            **model_options,
-        )
-    except OSError:
-        # First run: allow SentenceTransformers to populate the local cache.
-        return SentenceTransformer(
-            EMBEDDING_MODEL,
-            local_files_only=False,
-            **model_options,
-        )
+    api_key = os.getenv("OPENAI_API_KEY")
+    if not api_key:
+        raise ValueError("Thiếu OPENAI_API_KEY trong .env để tạo embeddings.")
+
+    from openai import OpenAI
+
+    return OpenAI(api_key=api_key)
 
 
 def embed_texts(texts: list[str], *, show_progress: bool = False) -> list[list[float]]:
-    """Embed texts with normalised BGE-M3 dense vectors."""
+    """Embed texts with OpenAI dense vectors."""
 
     if not texts:
         return []
-    model = get_embedding_model()
-    batch_size = int(os.getenv("EMBEDDING_BATCH_SIZE", "8"))
-    vectors = model.encode(
-        texts,
-        batch_size=batch_size,
-        show_progress_bar=show_progress,
-        normalize_embeddings=True,
-        convert_to_numpy=True,
-    )
-    embeddings = vectors.tolist()
+    client = get_embedding_model()
+    batch_size = int(os.getenv("EMBEDDING_BATCH_SIZE", "64"))
+    embeddings: list[list[float]] = []
+    total = len(texts)
+    for start in range(0, total, batch_size):
+        batch = texts[start : start + batch_size]
+        if show_progress:
+            print(f"  Embedding batch {start + 1}-{start + len(batch)}/{total}")
+        response = client.embeddings.create(
+            model=EMBEDDING_MODEL,
+            input=batch,
+        )
+        embeddings.extend(item.embedding for item in response.data)
     if embeddings and len(embeddings[0]) != EMBEDDING_DIM:
         raise ValueError(
             f"Embedding dimension mismatch: expected {EMBEDDING_DIM}, "
@@ -407,7 +405,7 @@ def embed_texts(texts: list[str], *, show_progress: bool = False) -> list[list[f
 
 
 def embed_chunks(chunks: list[dict]) -> list[dict]:
-    """Return chunks with a 1,024-dimensional dense embedding."""
+    """Return chunks with OpenAI dense embeddings."""
 
     embeddings = embed_texts(
         [chunk["content"] for chunk in chunks], show_progress=True

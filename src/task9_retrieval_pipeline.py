@@ -159,7 +159,7 @@ def retrieve(
     for item in merged:
         item["source"] = "hybrid"
 
-    if use_reranking and merged:
+    if use_reranking and merged and RERANK_METHOD.lower() != "rrf":
         final_results = rerank(query, merged, top_k=top_k, method=RERANK_METHOD)
     else:
         final_results = merged[:top_k]
@@ -181,6 +181,7 @@ def retrieve(
         fallback = pageindex_search(query, top_k=top_k)
         if fallback:
             return fallback[:top_k]
+        return []
 
     return final_results[:top_k]
 
