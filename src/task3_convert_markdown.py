@@ -1,5 +1,15 @@
 """Task 3 - Standardise landing documents as UTF-8 Markdown.
 
+Why standardise to Markdown:
+    - The landing zone intentionally keeps mixed formats: PDF/TXT official
+      documents and JSON crawled articles. Retrieval works better when every
+      source becomes one predictable UTF-8 Markdown format.
+    - Front matter carries provenance from Task 1/2 into every standardized
+      file, so downstream chunks keep source/title/location metadata for
+      citation and evaluation.
+    - Markdown headings are preserved because Task 4 depends on them for
+      header-aware chunking.
+
 Run from the repository root::
 
     python -m src.task3_convert_markdown

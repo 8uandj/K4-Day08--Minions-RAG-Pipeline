@@ -4,6 +4,24 @@ Task 9 — Retrieval Pipeline Hoàn Chỉnh.
 Kết hợp semantic search + lexical search + reranking + PageIndex fallback
 thành một pipeline thống nhất.
 
+Tại sao chọn hybrid retrieval:
+    - Semantic search tìm theo ý nghĩa, tốt cho câu hỏi tự nhiên và paraphrase.
+    - Lexical search giữ exact match, tốt cho tên địa danh, tên món, số văn bản,
+      "e-visa", "Mã Pí Lèng", "Vinasun", hoặc các từ khóa hiếm.
+    - Hybrid giúp giảm rủi ro mỗi retriever: dense có thể mơ hồ, sparse có thể
+      quá cứng theo từ khóa. Kết hợp cả hai cho recall tốt hơn.
+
+Tại sao dùng RRF để merge:
+    - Dense và sparse có score khác bản chất, nên weighted sum cần calibrate
+      khó và dễ lệch theo corpus.
+    - RRF dùng rank thay vì score, vì vậy ổn định hơn khi gộp nhiều retriever.
+      Chunk được cả dense và sparse xếp cao sẽ nổi lên tự nhiên.
+
+Tại sao fallback dùng semantic cosine gốc:
+    - RRF score chỉ là điểm fuse theo thứ hạng, không đo độ liên quan tuyệt đối.
+      Fallback cần biết "câu hỏi này có khớp corpus không", nên phải nhìn vào
+      dense cosine gốc trước khi merge/rerank.
+
 Logic:
     1. Chạy semantic_search + lexical_search song song
     2. Merge kết quả (RRF hoặc weighted fusion)
@@ -43,6 +61,36 @@ DEFAULT_TOP_K = 5
 RERANK_METHOD = "rrf"  # "cross_encoder" | "mmr" | "rrf"
 
 
+def _tag_results(results: list[dict], source: str) -> list[dict]:
+    """Return shallow-copied results with a pipeline source marker."""
+
+    tagged: list[dict] = []
+    for item in results:
+        copied = item.copy()
+        copied["metadata"] = dict(copied.get("metadata") or {})
+        copied["source"] = source
+        tagged.append(copied)
+    return tagged
+
+
+def _deduplicate(results: list[dict]) -> list[dict]:
+    """Remove duplicate chunks while keeping the highest-score candidate."""
+
+    deduped: dict[str, dict] = {}
+    for item in results:
+        key = item.get("content", "").strip()
+        if not key:
+            continue
+        previous = deduped.get(key)
+        if previous is None or float(item.get("score", 0.0)) > float(
+            previous.get("score", 0.0)
+        ):
+            deduped[key] = item
+    return sorted(
+        deduped.values(), key=lambda item: float(item.get("score", 0.0)), reverse=True
+    )
+
+
 def retrieve(
     query: str,
     top_k: int = DEFAULT_TOP_K,
@@ -77,40 +125,71 @@ def retrieve(
             'source': str  # 'hybrid' hoặc 'pageindex'
         }
     """
-    # TODO: Implement full retrieval pipeline
-    #
-    # Step 1: Song song chạy semantic + lexical
-    # dense_results = semantic_search(query, top_k=top_k * 2)
-    # sparse_results = lexical_search(query, top_k=top_k * 2)
-    #
-    # Step 2: Merge bằng RRF
-    # merged = rerank_rrf([dense_results, sparse_results], top_k=top_k * 2)
-    # for item in merged:
-    #     item["source"] = "hybrid"
-    #
-    # Step 3: Rerank
-    # if use_reranking and merged:
-    #     final_results = rerank(query, merged, top_k=top_k, method=RERANK_METHOD)
-    # else:
-    #     final_results = merged[:top_k]
-    #
-    # Step 4: Check threshold DÙNG ĐIỂM COSINE GỐC (dense_results), KHÔNG PHẢI RRF
-    # best_score = dense_results[0]["score"] if dense_results else 0.0
-    # if best_score < score_threshold:
-    #     print(f"  ⚠ Semantic best score ({best_score:.3f}) < threshold ({score_threshold})")
-    #     fallback = pageindex_search(query, top_k=top_k)
-    #     if fallback:
-    #         return fallback
-    #
-    # return final_results[:top_k]
-    raise NotImplementedError("Implement retrieve")
+    query = query.strip()
+    if not query or top_k <= 0:
+        return []
+
+    retrieval_k = max(top_k * 3, top_k)
+
+    try:
+        dense_results = semantic_search(query, top_k=retrieval_k)
+    except Exception as exc:
+        print(f"  ⚠ Semantic search failed: {exc}")
+        dense_results = []
+
+    try:
+        sparse_results = lexical_search(query, top_k=retrieval_k)
+    except Exception as exc:
+        print(f"  ⚠ Lexical search failed: {exc}")
+        sparse_results = []
+
+    dense_tagged = _tag_results(dense_results, "hybrid")
+    sparse_tagged = _tag_results(sparse_results, "hybrid")
+    best_semantic_score = (
+        max(float(item.get("score", 0.0)) for item in dense_results)
+        if dense_results
+        else 0.0
+    )
+
+    if dense_tagged and sparse_tagged:
+        merged = rerank_rrf([dense_tagged, sparse_tagged], top_k=retrieval_k)
+    else:
+        merged = _deduplicate(dense_tagged + sparse_tagged)[:retrieval_k]
+
+    for item in merged:
+        item["source"] = "hybrid"
+
+    if use_reranking and merged:
+        final_results = rerank(query, merged, top_k=top_k, method=RERANK_METHOD)
+    else:
+        final_results = merged[:top_k]
+
+    for item in final_results:
+        item["source"] = "hybrid"
+
+    # Nếu dense search chạy và có điểm thấp, fallback theo thiết kế. Nếu dense
+    # không khả dụng trong môi trường local nhưng lexical vẫn có kết quả, giữ
+    # hybrid để pipeline không bị phụ thuộc cứng vào vector dependency.
+    should_fallback = not final_results or (
+        bool(dense_results) and best_semantic_score < score_threshold
+    )
+    if should_fallback:
+        print(
+            "  ⚠ Semantic best score "
+            f"({best_semantic_score:.3f}) < threshold ({score_threshold})"
+        )
+        fallback = pageindex_search(query, top_k=top_k)
+        if fallback:
+            return fallback[:top_k]
+
+    return final_results[:top_k]
 
 
 if __name__ == "__main__":
     test_queries = [
-        "What payment methods does Shopee support?",
-        "How do I request a return or refund?",
-        "What evidence do I need for a refund request?",
+        "Lịch trình Hà Giang 3 ngày 2 đêm nên đi thế nào?",
+        "Du khách cần lưu ý gì khi xin e-visa Việt Nam?",
+        "Ở Đà Nẵng nên ăn món gì và tham quan đâu?",
         "xyzabc123nonsense",  # Query không có kết quả → test fallback
     ]
 

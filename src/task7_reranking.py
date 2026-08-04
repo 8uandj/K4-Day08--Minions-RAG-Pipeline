@@ -8,6 +8,20 @@ Chọn 1 trong các phương pháp:
 
 Nếu dùng MMR hoặc RRF, đảm bảo hiểu và giải thích được cơ chế.
 
+Tại sao chọn RRF làm mặc định:
+    - Pipeline có ít nhất hai ranker khác thang điểm: dense cosine từ Chroma và
+      sparse TF-IDF cosine. So sánh trực tiếp hai score này dễ lệch vì mỗi
+      retriever có phân phối điểm riêng.
+    - RRF chỉ dùng thứ hạng, nên gộp kết quả ổn định mà không cần calibrate
+      weight thủ công. Chunk xuất hiện cao ở cả dense và sparse sẽ được đẩy lên.
+    - RRF không cần API key/model reranker, chạy local nhanh và phù hợp demo lab.
+
+Khi nào không dùng RRF:
+    - Nếu có cross-encoder multilingual đủ mạnh và chi phí chấp nhận được, dùng
+      nó sau bước retrieve để đánh giá trực tiếp query-document pair.
+    - Nếu muốn đa dạng hóa context, MMR hữu ích hơn vì phạt các chunk quá giống
+      nhau, tránh đưa nhiều đoạn lặp vào LLM.
+
 Lưu ý quan trọng về RRF (sẽ dùng lại ở Task 9): điểm RRF fused CHỈ phụ thuộc thứ hạng,
 không phải độ tương đồng thật. Top-1 sau khi fuse luôn xấp xỉ 1/(k+1) ≈ 0.0164 (k=60),
 bất kể nội dung đó có thật sự liên quan đến câu hỏi hay không. Đừng dùng điểm RRF để
@@ -409,10 +423,10 @@ def rerank(
 
 if __name__ == "__main__":
     dummy_candidates = [
-        {"content": "Chính sách trả hàng và hoàn tiền Shopee trong 15 ngày", "score": 0.8, "metadata": {}},
-        {"content": "Các phương thức thanh toán hỗ trợ trên Shopee Vietnam", "score": 0.6, "metadata": {}},
-        {"content": "Quy định đăng bán sản phẩm dành cho người bán", "score": 0.5, "metadata": {}},
+        {"content": "Lịch trình Hà Giang Loop bằng xe máy trong bốn ngày", "score": 0.8, "metadata": {}},
+        {"content": "Hướng dẫn e-visa Việt Nam cho du khách quốc tế", "score": 0.6, "metadata": {}},
+        {"content": "Các món ăn địa phương nên thử khi đến Đà Nẵng", "score": 0.5, "metadata": {}},
     ]
-    results = rerank("chính sách trả hàng shopee", dummy_candidates, top_k=2)
+    results = rerank("lịch trình Hà Giang bằng xe máy", dummy_candidates, top_k=2)
     for r in results:
         print(f"[{r['score']:.3f}] {r['content']}")

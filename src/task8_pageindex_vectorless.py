@@ -4,8 +4,18 @@ Task 8 — PageIndex Vectorless RAG.
 Đăng ký tài khoản tại: https://pageindex.ai/
 SDK & sample code: https://github.com/VectifyAI/PageIndex
 
-PageIndex cho phép RAG mà không cần vector store — sử d�ng
+PageIndex cho phép RAG mà không cần vector store — sử dụng
 structural understanding của document thay vì embedding.
+
+Tại sao cần PageIndex/vectorless fallback:
+    - Dense embeddings đôi khi trả điểm thấp với câu hỏi lạ, câu hỏi chứa nhiều
+      tên riêng, hoặc khi corpus chưa được index đầy đủ. Khi đó fallback theo
+      cấu trúc tài liệu giúp hệ thống vẫn có một đường tìm kiếm khác.
+    - Travel/legal documents có heading rõ ràng như "Visa Requirements",
+      "Health and Safety", "Transport within Vietnam". Structural retrieval có
+      thể bám vào heading/section thay vì phụ thuộc hoàn toàn vào vector.
+    - Bản local fallback parse Markdown headings để mô phỏng PageIndex, giúp
+      test và demo chạy được ngay cả khi chưa có PAGEINDEX_API_KEY.
 
 Cài đặt:
     pip install pageindex
@@ -191,6 +201,11 @@ def upload_documents() -> list[str]:
         return []
 
     try:
+        try:
+            from fpdf import FPDF
+        except ImportError:
+            return []
+
         # Lazy import — package `pageindex` có thể chưa được cài
         # (không bắt buộc, vì fallback local đã đủ test pass)
         from pageindex import PageIndexClient
@@ -200,7 +215,6 @@ def upload_documents() -> list[str]:
         for md_file in STANDARDIZED_DIR.rglob("*.md"):
             # Convert md -> pdf đơn giản để upload
             try:
-                from fpdf import FPDF
                 pdf = FPDF()
                 pdf.add_page()
                 pdf.set_font("Helvetica", size=11)
@@ -433,6 +447,8 @@ if __name__ == "__main__":
         print("  Đăng ký tại: https://pageindex.ai/ để dùng API thật.\n")
 
     print("Test query:")
-    results = pageindex_search("danh sách sản phẩm cấm đăng bán", top_k=3)
+    results = pageindex_search(
+        "lưu ý sức khỏe và an toàn khi đi du lịch Việt Nam", top_k=3
+    )
     for r in results:
         print(f"[{r['score']:.3f}] [{r['source']}] {r['content'][:100]}...")

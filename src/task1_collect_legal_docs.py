@@ -4,6 +4,14 @@ The raw PDFs are intentionally kept in ``data/landing/legal``.  Although the
 starter repository calls this directory ``legal``, the project uses it for
 official, authoritative documents: tourism law and two national travel guides.
 
+Why these sources:
+    - RAG answers about visa, safety, transport, and tourist rights need
+      high-trust evidence. Official government/tourism documents are therefore
+      separated from blog-style news in the landing zone.
+    - Keeping raw PDFs/TXT plus ``manifest.json`` makes provenance auditable:
+      Task 3 can preserve title, authority, source URL, language, and document
+      type in Markdown front matter for later citation.
+
 Run from the repository root::
 
     python -m src.task1_collect_legal_docs

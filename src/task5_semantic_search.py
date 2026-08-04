@@ -1,4 +1,24 @@
-"""Task 5 - Dense retrieval with optional local query expansion."""
+"""Task 5 - Dense retrieval with optional local query expansion.
+
+Why semantic/dense search:
+    - Travel questions are often phrased differently from the source text.
+      Dense retrieval can match intent such as "ăn gì ở Đà Nẵng" with chunks
+      that say "foodie guide", "local dishes", or specific dish names.
+    - It complements sparse search: dense search catches paraphrases and
+      bilingual wording, while Task 6 catches exact names, addresses, and laws.
+
+Why local HyDE-lite/query expansion:
+    - Full HyDE normally asks an LLM to draft a hypothetical answer, then embeds
+      that answer. This project keeps the same spirit with deterministic domain
+      expansions, avoiding API cost and unstable generated text.
+    - The expansions add bilingual travel terms and local place names, improving
+      recall for Vietnamese queries against English official tourism pages.
+
+Why fuse duplicate chunks by best cosine score:
+    - Multiple expanded query variants may return the same chunk. Keeping the
+      best score avoids duplicates in the context and preserves the strongest
+      semantic evidence for Task 9 thresholding.
+"""
 
 from __future__ import annotations
 

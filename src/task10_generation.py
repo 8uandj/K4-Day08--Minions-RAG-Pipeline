@@ -11,9 +11,21 @@ Hướng dẫn:
 Gợi ý LLM: OpenRouter có nhiều model gắn hậu tố ":free" không tính phí — xem
 https://openrouter.ai/models?max_price=0 — phù hợp nếu chưa có credit trả phí.
 Base URL: "https://openrouter.ai/api/v1", dùng chung interface với OpenAI SDK.
+
+Tại sao generation cần citation:
+    - RAG cho chủ đề du lịch dễ bị hallucination về giá, lịch trình, visa hoặc
+      an toàn. Citation buộc câu trả lời bám vào chunk đã retrieve.
+    - Source label trong context giúp người dùng kiểm chứng lại guide/legal
+      document, đồng thời giúp Role 5 đánh giá faithfulness bằng RAGAS.
+
+Tại sao reorder chunks:
+    - LLM thường chú ý tốt hơn ở đầu và cuối prompt. Sau retrieval/rerank, ta
+      đặt chunk mạnh nhất ở đầu và một chunk mạnh khác ở cuối để giảm hiệu ứng
+      "lost in the middle".
 """
 
 import os
+import re
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -45,12 +57,13 @@ LLM_MODEL = "openai/gpt-4o-mini"  # hoặc model ":free" nếu chưa có credit
 # SYSTEM PROMPT
 # =============================================================================
 
-SYSTEM_PROMPT = """Bạn là trợ lý trả lời câu hỏi về chính sách thương mại điện tử và hỗ trợ
-khách hàng (thanh toán, đổi trả, giao hàng, quyền riêng tư, quy định người bán).
+SYSTEM_PROMPT = """Bạn là trợ lý hướng dẫn viên du lịch thông minh cho Việt Nam.
+Bạn trả lời về lịch trình, điểm đến, di chuyển, ẩm thực, văn hóa ứng xử, visa,
+sức khỏe và an toàn dựa trên tài liệu du lịch/chính thống được cung cấp.
 
 Quy tắc bắt buộc:
 1. Chỉ sử dụng thông tin từ context được cung cấp — KHÔNG bịa đặt
-2. Mỗi khẳng định phải có trích dẫn ngay sau, ví dụ: [Returns Policy, 2026]
+2. Mỗi khẳng định quan trọng phải có trích dẫn ngay sau, ví dụ: [Visa Requirements]
 3. Nếu context không đủ thông tin → trả lời: "Tôi không thể xác minh thông tin này từ nguồn hiện có"
 4. Trả lời bằng tiếng Việt, có cấu trúc rõ ràng theo đoạn văn
 5. Không suy luận hay mở rộng ngoài những gì được nêu trong context"""
@@ -104,13 +117,55 @@ def format_context(chunks: list[dict]) -> str:
 
     context_parts = []
     for i, chunk in enumerate(chunks, 1):
-        source = chunk.get("metadata", {}).get("source", f"Source {i}")
-        doc_type = chunk.get("metadata", {}).get("type", "unknown")
+        metadata = chunk.get("metadata", {})
+        source = metadata.get("title") or metadata.get("source", f"Source {i}")
+        doc_type = metadata.get("doc_type") or metadata.get("type", "unknown")
         context_parts.append(
             f"[Document {i} | Source: {source} | Type: {doc_type}]\n"
             f"{chunk['content']}\n"
         )
     return "\n---\n".join(context_parts)
+
+
+def _citation_label(chunk: dict, index: int) -> str:
+    """Build a compact citation label from chunk metadata."""
+
+    metadata = chunk.get("metadata", {})
+    return str(
+        metadata.get("title")
+        or metadata.get("section")
+        or metadata.get("source")
+        or f"Document {index}"
+    )
+
+
+def _clean_excerpt(content: str, max_chars: int = 420) -> str:
+    """Return a short readable excerpt for local extractive fallback."""
+
+    content = re.sub(r"\s+", " ", content).strip()
+    if len(content) <= max_chars:
+        return content
+    clipped = content[:max_chars].rsplit(" ", 1)[0].strip()
+    return f"{clipped}..."
+
+
+def _extractive_answer(query: str, chunks: list[dict]) -> str:
+    """Create a citation-backed answer when no LLM API key is available."""
+
+    if not chunks:
+        return "Tôi không thể xác minh thông tin này từ nguồn hiện có"
+
+    lines = [
+        "Dựa trên các nguồn đã truy xuất, đây là thông tin liên quan nhất:",
+    ]
+    for index, chunk in enumerate(chunks[:3], 1):
+        citation = _citation_label(chunk, index)
+        excerpt = _clean_excerpt(chunk.get("content", ""))
+        if excerpt:
+            lines.append(f"{index}. {excerpt} [{citation}]")
+    if len(lines) == 1:
+        return "Tôi không thể xác minh thông tin này từ nguồn hiện có"
+    return "\n".join(lines)
 
 
 # =============================================================================
@@ -152,22 +207,34 @@ def generate_with_citation(query: str, top_k: int = TOP_K) -> dict:
     # Step 4: Build prompt
     user_message = f"""Context:\n{context}\n\n---\n\nQuestion: {query}"""
     
-    # Step 5: Call LLM (OpenRouter — OpenAI-compatible API)
-    from openai import OpenAI
     api_key = os.getenv("OPENROUTER_API_KEY") or os.getenv("OPENAI_API_KEY")
-    client = OpenAI(api_key=api_key, base_url="https://openrouter.ai/api/v1")
-    
-    response = client.chat.completions.create(
-        model=LLM_MODEL,
-        messages=[
-            {"role": "system", "content": SYSTEM_PROMPT},
-            {"role": "user", "content": user_message}
-        ],
-        temperature=TEMPERATURE,
-        top_p=TOP_P,
-    )
-    
-    answer = response.choices[0].message.content
+    if api_key:
+        try:
+            # Step 5: Call LLM (OpenRouter — OpenAI-compatible API)
+            from openai import OpenAI
+
+            if os.getenv("OPENROUTER_API_KEY"):
+                client = OpenAI(
+                    api_key=api_key, base_url="https://openrouter.ai/api/v1"
+                )
+            else:
+                client = OpenAI(api_key=api_key)
+
+            response = client.chat.completions.create(
+                model=LLM_MODEL,
+                messages=[
+                    {"role": "system", "content": SYSTEM_PROMPT},
+                    {"role": "user", "content": user_message},
+                ],
+                temperature=TEMPERATURE,
+                top_p=TOP_P,
+            )
+            answer = response.choices[0].message.content or ""
+        except Exception as exc:
+            print(f"  ⚠ LLM generation failed, using extractive fallback: {exc}")
+            answer = _extractive_answer(query, reordered)
+    else:
+        answer = _extractive_answer(query, reordered)
     
     # Step 6: Return
     return {
@@ -179,9 +246,9 @@ def generate_with_citation(query: str, top_k: int = TOP_K) -> dict:
 
 if __name__ == "__main__":
     test_queries = [
-        "Shopee hỗ trợ những phương thức thanh toán nào?",
-        "Làm sao để yêu cầu đổi trả hay hoàn tiền?",
-        "Cần chuẩn bị bằng chứng gì khi yêu cầu hoàn tiền?",
+        "Lịch trình Hà Giang 3 ngày 2 đêm nên đi thế nào?",
+        "Du khách cần lưu ý gì khi xin e-visa Việt Nam?",
+        "Ở Đà Nẵng nên ăn món gì và tham quan đâu?",
     ]
 
     for q in test_queries:

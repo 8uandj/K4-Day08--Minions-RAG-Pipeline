@@ -4,6 +4,16 @@ The crawler deliberately stores raw-ish JSON (metadata plus Markdown) in the
 landing zone.  It uses normal HTTP requests because all selected sources are
 public, server-rendered pages; a browser is unnecessary for these URLs.
 
+Why this crawl strategy:
+    - Travel RAG needs broad destination coverage, so the news corpus combines
+      official tourism pages with a small number of trusted travel-review pages.
+    - Each landing JSON stores both metadata and cleaned Markdown. Metadata
+      supports filtering/citation later; Markdown preserves headings so Task 4
+      can chunk by document structure instead of flattening everything.
+    - ``requests`` + ``BeautifulSoup`` is chosen over browser crawling because
+      the selected pages are static enough, faster to run, and easier for the
+      team to reproduce.
+
 Run from the repository root::
 
     python -m src.task2_crawl_news
