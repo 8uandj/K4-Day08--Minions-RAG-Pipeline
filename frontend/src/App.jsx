@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Sidebar from './components/Sidebar';
 import ChatArea from './components/ChatArea';
 import { SAMPLE_CHAT_MESSAGES, INITIAL_CONVERSATIONS } from './data/mockData';
+import { sendChatMessage, fetchHealthStatus } from './services/api';
 
 export default function App() {
   const [isCollapsed, setIsCollapsed] = useState(false);
@@ -11,6 +12,7 @@ export default function App() {
   const [messages, setMessages] = useState(SAMPLE_CHAT_MESSAGES);
   const [activeDestination, setActiveDestination] = useState('Hà Giang 3N2Đ - Phượt Xe Máy');
   const [isGenerating, setIsGenerating] = useState(false);
+  const [dbStatus, setDbStatus] = useState('Checking...');
 
   // RAG Control Parameters State
   const [ragParams, setRagParams] = useState({
@@ -18,6 +20,19 @@ export default function App() {
     enableHyDE: true,
     enablePageIndex: true
   });
+
+  // Check Backend & Vector DB health on mount
+  useEffect(() => {
+    async function checkHealth() {
+      const res = await fetchHealthStatus();
+      if (res && res.status === 'ok') {
+        setDbStatus(`Connected (${res.embedding_model || 'BAAI/bge-m3'})`);
+      } else {
+        setDbStatus('Offline Mode (Local Fallback)');
+      }
+    }
+    checkHealth();
+  }, []);
 
   // Handle New Chat creation
   const handleNewChat = () => {
@@ -41,8 +56,10 @@ export default function App() {
     handleSendMessage(topic.query);
   };
 
-  // Simulated AI response generation with RAG retrieval simulation
-  const handleSendMessage = (text) => {
+  // Real API RAG query handling
+  const handleSendMessage = async (text) => {
+    if (!text || !text.trim()) return;
+
     const userMsg = {
       id: `user-${Date.now()}`,
       sender: 'user',
@@ -53,42 +70,32 @@ export default function App() {
     setMessages((prev) => [...prev, userMsg]);
     setIsGenerating(true);
 
-    // Simulate AI response delay
-    setTimeout(() => {
-      let aiMsgContent = `Cảm ơn câu hỏi của bạn! Dựa trên dữ liệu tìm kiếm RAG (Top-${ragParams.topK} documents) với mô hình **BAAI/bge-m3**, tôi đã tổng hợp thông tin tốt nhất cho chuyến đi:`;
-
-      let simulatedCitations = [
-        {
-          id: 'cit-new-1',
-          title: `Cẩm Nang Du Lịch Chi Tiết: ${text.slice(0, 30)}...`,
-          source: 'Cục Du Lịch Quốc Gia Việt Nam - Official',
-          snippet: 'Dữ liệu thời tiết, tuyến đường giao thông và các khu du lịch trọng điểm đã được cập nhật mới nhất cho năm 2026.',
-          score: '92%',
-          url: 'https://vietnamtourism.gov.vn',
-          type: 'official'
-        },
-        {
-          id: 'cit-new-2',
-          title: 'Review Thực Tế Từ Cộng Đồng Phượt Việt Nam',
-          source: 'Check-in Vietnam Community',
-          snippet: 'Nên chuẩn bị sẵn trang phục giữ ấm khi về đêm và đặt phòng nghỉ trước ít nhất 3 ngày để đảm bảo có vị trí view đẹp.',
-          score: '87%',
-          url: 'https://checkinvietnam.com',
-          type: 'blog'
-        }
-      ];
+    try {
+      // Call FastAPI Backend Endpoint
+      const apiResult = await sendChatMessage({
+        message: text,
+        topK: ragParams.topK,
+        useHyDE: ragParams.enableHyDE,
+        usePageIndex: ragParams.enablePageIndex
+      });
 
       const assistantMsg = {
         id: `ai-${Date.now()}`,
         sender: 'assistant',
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-        content: `${aiMsgContent}\n\n• **Điểm nổi bật:** Lịch trình được tối ưu theo các tham số HyDE: ${ragParams.enableHyDE ? 'Bật' : 'Tắt'} và PageIndex Fallback: ${ragParams.enablePageIndex ? 'Bật' : 'Tắt'}.\n• **Khuyến nghị:** Chuẩn bị đầy đủ giấy tờ cá nhân, bảo hiểm du lịch và kiểm tra xe cẩn thận trước khi xuất phát.`,
-        citations: simulatedCitations
+        content: apiResult.answer,
+        citations: apiResult.citations,
+        itinerary: apiResult.itinerary,
+        costSummary: apiResult.costSummary,
+        recommendedFoods: apiResult.recommendedFoods
       };
 
       setMessages((prev) => [...prev, assistantMsg]);
+    } catch (err) {
+      console.error('Error sending chat message:', err);
+    } finally {
       setIsGenerating(false);
-    }, 1200);
+    }
   };
 
   // Clear Chat messages
@@ -121,6 +128,7 @@ export default function App() {
           onSelectTopic={handleSelectTopic}
           ragParams={ragParams}
           setRagParams={setRagParams}
+          dbStatus={dbStatus}
         />
       </div>
 
@@ -148,6 +156,7 @@ export default function App() {
               }}
               ragParams={ragParams}
               setRagParams={setRagParams}
+              dbStatus={dbStatus}
             />
           </div>
         </div>

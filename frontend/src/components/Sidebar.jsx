@@ -13,7 +13,8 @@ export default function Sidebar({
   onNewChat,
   onSelectTopic,
   ragParams,
-  setRagParams
+  setRagParams,
+  dbStatus
 }) {
   return (
     <motion.aside
@@ -75,7 +76,7 @@ export default function Sidebar({
         {/* Parameter Control Panel */}
         {!isCollapsed && (
           <div>
-            <ParameterPanel ragParams={ragParams} setRagParams={setRagParams} />
+            <ParameterPanel ragParams={ragParams} setRagParams={setRagParams} dbStatus={dbStatus} />
           </div>
         )}
 
