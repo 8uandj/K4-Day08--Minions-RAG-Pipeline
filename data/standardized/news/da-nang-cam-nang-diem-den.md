@@ -6,7 +6,7 @@ source_type: "official_tourism_guide"
 location: "Đà Nẵng"
 categories: ["cẩm nang", "thời tiết", "di chuyển", "tham quan"]
 language: "en"
-date_crawled: "2026-08-04T07:49:53.874376+00:00"
+date_crawled: "2026-08-04T08:45:54.894832+00:00"
 ---
 # Da Nang
 

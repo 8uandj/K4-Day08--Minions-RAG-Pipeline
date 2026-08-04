@@ -6,7 +6,7 @@ source_type: "official_tourism_guide"
 location: "Việt Nam"
 categories: ["ẩm thực", "văn hóa ứng xử", "an toàn thực phẩm"]
 language: "en"
-date_crawled: "2026-08-04T07:49:54.816175+00:00"
+date_crawled: "2026-08-04T08:45:55.421403+00:00"
 ---
 # A beginner's guide to Vietnamese street food
 

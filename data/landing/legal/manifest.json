@@ -10,7 +10,7 @@
     "source_type": "official_legal_document",
     "local_path": "data/landing/legal/luat-du-lich-09-2017-qh14.pdf",
     "size_bytes": 614435,
-    "retrieved_at": "2026-08-04T07:50:42.260655+00:00"
+    "retrieved_at": "2026-08-04T08:46:54.674690+00:00"
   },
   {
     "document_id": "adventure-trails-vietnam",
@@ -23,7 +23,7 @@
     "source_type": "official_tourism_guide",
     "local_path": "data/landing/legal/cam-nang-cung-duong-phieu-luu-viet-nam.pdf",
     "size_bytes": 1222450,
-    "retrieved_at": "2026-08-04T07:50:42.260946+00:00"
+    "retrieved_at": "2026-08-04T08:46:54.675485+00:00"
   },
   {
     "document_id": "cam-nang-du-lich-ben-vung-viet-nam",
@@ -36,6 +36,71 @@
     "source_type": "official_tourism_guide",
     "local_path": "data/landing/legal/cam-nang-du-lich-ben-vung-viet-nam.pdf",
     "size_bytes": 9052152,
-    "retrieved_at": "2026-08-04T07:50:42.262596+00:00"
+    "retrieved_at": "2026-08-04T08:46:54.680709+00:00"
+  },
+  {
+    "document_id": "vietnam-visa-requirements",
+    "filename": "vietnam-visa-requirements.txt",
+    "title": "Visa Requirements",
+    "authority": "Cục Du lịch Quốc gia Việt Nam (Vietnam Tourism)",
+    "url": "https://vietnam.travel/plan-your-trip/visa-requirements",
+    "topic": "yêu cầu thị thực; miễn thị thực; chuẩn bị nhập cảnh",
+    "language": "en",
+    "source_type": "official_travel_policy",
+    "local_path": "data/landing/legal/vietnam-visa-requirements.txt",
+    "size_bytes": 2738,
+    "retrieved_at": "2026-08-04T08:46:54.681216+00:00"
+  },
+  {
+    "document_id": "vietnam-e-visa-applications",
+    "filename": "vietnam-e-visa-applications.txt",
+    "title": "E-visa Applications",
+    "authority": "Cục Du lịch Quốc gia Việt Nam (Vietnam Tourism)",
+    "url": "https://vietnam.travel/plan-your-trip/official-vietnam-evisa-application",
+    "topic": "hướng dẫn e-visa; thủ tục nhập cảnh; giấy tờ du lịch",
+    "language": "en",
+    "source_type": "official_travel_policy",
+    "local_path": "data/landing/legal/vietnam-e-visa-applications.txt",
+    "size_bytes": 1933,
+    "retrieved_at": "2026-08-04T08:46:54.681269+00:00"
+  },
+  {
+    "document_id": "getting-to-vietnam",
+    "filename": "getting-to-vietnam.txt",
+    "title": "Getting to Vietnam",
+    "authority": "Cục Du lịch Quốc gia Việt Nam (Vietnam Tourism)",
+    "url": "https://vietnam.travel/node/219",
+    "topic": "đường bay; cửa khẩu; chuẩn bị đến Việt Nam",
+    "language": "en",
+    "source_type": "official_travel_guide",
+    "local_path": "data/landing/legal/getting-to-vietnam.txt",
+    "size_bytes": 4922,
+    "retrieved_at": "2026-08-04T08:46:55.011384+00:00"
+  },
+  {
+    "document_id": "getting-around-vietnam",
+    "filename": "getting-around-vietnam.txt",
+    "title": "Getting Around Vietnam",
+    "authority": "Cục Du lịch Quốc gia Việt Nam (Vietnam Tourism)",
+    "url": "https://vietnam.travel/plan-your-trip/transport-within-vietnam",
+    "topic": "di chuyển nội địa; tàu; xe; máy bay; taxi",
+    "language": "en",
+    "source_type": "official_travel_guide",
+    "local_path": "data/landing/legal/getting-around-vietnam.txt",
+    "size_bytes": 6009,
+    "retrieved_at": "2026-08-04T08:46:55.824163+00:00"
+  },
+  {
+    "document_id": "health-safety-vietnam",
+    "filename": "health-safety-vietnam.txt",
+    "title": "Health & Safety",
+    "authority": "Cục Du lịch Quốc gia Việt Nam (Vietnam Tourism)",
+    "url": "https://vietnam.travel/plan-your-trip/health-safety",
+    "topic": "sức khỏe; an toàn; chuẩn bị trước chuyến đi",
+    "language": "en",
+    "source_type": "official_travel_policy",
+    "local_path": "data/landing/legal/health-safety-vietnam.txt",
+    "size_bytes": 8808,
+    "retrieved_at": "2026-08-04T08:46:56.598404+00:00"
   }
 ]

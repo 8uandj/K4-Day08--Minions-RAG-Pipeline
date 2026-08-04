@@ -6,7 +6,7 @@ source_type: "official_tourism_guide"
 location: "Hà Giang"
 categories: ["lịch trình", "xe máy", "an toàn", "tiết kiệm"]
 language: "en"
-date_crawled: "2026-08-04T07:49:53.870045+00:00"
+date_crawled: "2026-08-04T08:45:54.870376+00:00"
 ---
 # The Ha Giang loop: a four-day road trip
 

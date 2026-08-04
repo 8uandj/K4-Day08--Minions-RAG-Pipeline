@@ -59,8 +59,11 @@ def convert_legal_docs() -> list[Path]:
         if filepath.suffix.lower() not in {".pdf", ".docx", ".doc", ".txt"}:
             continue
         print(f"Converting: {filepath.name}")
-        result = converter.convert(str(filepath))
-        text = (result.text_content or "").strip()
+        if filepath.suffix.lower() == ".txt":
+            text = filepath.read_text(encoding="utf-8").strip()
+        else:
+            result = converter.convert(str(filepath))
+            text = (result.text_content or "").strip()
         if len(text) < 200:
             raise ValueError(f"{filepath.name} convert ra nội dung quá ngắn")
         record = manifest.get(filepath.name, {})

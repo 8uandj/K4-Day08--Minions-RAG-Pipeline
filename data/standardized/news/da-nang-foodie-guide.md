@@ -6,7 +6,7 @@ source_type: "official_tourism_guide"
 location: "Đà Nẵng"
 categories: ["ẩm thực", "đặc sản", "địa chỉ quán"]
 language: "en"
-date_crawled: "2026-08-04T07:49:54.794222+00:00"
+date_crawled: "2026-08-04T08:45:55.376642+00:00"
 ---
 # A foodie’s guide to Danang
 

@@ -6,7 +6,7 @@ source_type: "travel_blogger_review"
 location: "Quy Nhơn"
 categories: ["lịch trình", "ẩm thực", "địa chỉ quán", "chi phí"]
 language: "vi"
-date_crawled: "2026-08-04T07:49:55.854530+00:00"
+date_crawled: "2026-08-04T08:45:56.661403+00:00"
 ---
 # 24 giờ xanh ngát một màu Quy Nhơn
 

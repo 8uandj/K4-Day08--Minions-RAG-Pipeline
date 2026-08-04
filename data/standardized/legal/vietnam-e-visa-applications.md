@@ -1,0 +1,46 @@
+---
+title: "E-visa Applications"
+source: "https://vietnam.travel/plan-your-trip/official-vietnam-evisa-application"
+authority: "Cục Du lịch Quốc gia Việt Nam (Vietnam Tourism)"
+document_id: "vietnam-e-visa-applications"
+topic: "hướng dẫn e-visa; thủ tục nhập cảnh; giấy tờ du lịch"
+source_type: "official_travel_policy"
+language: "en"
+---
+# E-visa Applications
+
+An official guide to
+e-Visas for Vietnam
+From 15th August 2023, citizens of all countries and territories around the world can apply for electronic visas (e-visas) entering Vietnam and enjoy the 90-day e-visa duration, valid for multiple entry.
+Foreigners with e-visas are allowed to enter Vietnam via:
+13 international airports:
+Noi Bai (Ha Noi), Tan Son Nhat (Ho Chi Minh City), Cam Ranh (Khanh Hoa), Da Nang, Cat Bi (Hai Phong), Can Tho, Phu Quoc (Kien Giang), Phu Bai (Thua Thien Hue), Van Don (Quang Ninh), Tho Xuan (Thanh Hoa), Dong Hoi (Quang Binh), Phu Cat (Binh Dinh), Lien Khuong (Lam Dong).
+16 land border gates:
+Tay Trang (Dien Bien), Mong Cai (Quang Ninh), Huu Nghi (Lang Son), Lao Cai, Na Meo (Thanh Hoa), Nam Can (Nghe An), Cau Treo (Ha Tinh), Cha Lo (Quang Binh), La Lay and Lao Bao (Quang Tri), Bo Y (Kon Tum), Moc Bai and Xa Mat (Tay Ninh), Tinh Bien and Vinh Xuong (An Giang), Ha Tien (Kien Giang).
+13 sea border gates:
+Hon Gai and Cam Pha (Quang Ninh), Hai Phong, Nghi Son (Thanh Hoa), Vung Ang (Ha Tinh), Chan May (Thua Thien Hue), Da Nang, Nha Trang (Khanh Hoa), Quy Nhon (Binh Dinh), Dung Quat (Quang Ngai), Vung Tau (Ba Ria - Vung Tau), Ho Chi Minh City, Duong Dong (Kien Giang).
+What is Vietnam’s e-visa?
+Vietnam's e-visa is one of several visa types offered by the Vietnam Immigration Department to foreigners entering the country. The e-visa is valid for 90 days, and multiple entry. As of 15th August 2023, Vietnam's e-visa is available to all countries/territories around the world.
+Travellers can apply directly for e-visas at
+Vietnam e-Visa Official Website
+read more
+Weather and climate in Vietnam
+Top 10 festivals & holidays in Vietnam
+Vietnamese etiquette for travellers
+You are here:
+Home
+Things to do
+An official guide to e-Visas in Vietnam
+×
+Close
+Create an account
+×
+Close
+Sign in
+×
+Close
+Forgot Password
+×
+Close
+oops
+The entered email has subscribed for Vietnam Tourism monthly newsletter

@@ -6,7 +6,7 @@ source_type: "official_tourism_guide"
 location: "Đà Lạt"
 categories: ["cẩm nang", "thời tiết", "di chuyển", "tham quan"]
 language: "en"
-date_crawled: "2026-08-04T07:49:54.830287+00:00"
+date_crawled: "2026-08-04T08:45:55.416338+00:00"
 ---
 # Da Lat
 

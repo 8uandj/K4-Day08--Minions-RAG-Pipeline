@@ -6,7 +6,7 @@ source_type: "official_tourism_guide"
 location: "Hà Giang"
 categories: ["trải nghiệm", "văn hóa", "ẩm thực", "homestay"]
 language: "en"
-date_crawled: "2026-08-04T07:49:53.863252+00:00"
+date_crawled: "2026-08-04T08:45:54.860217+00:00"
 ---
 # Roadside adventures in Ha Giang
 

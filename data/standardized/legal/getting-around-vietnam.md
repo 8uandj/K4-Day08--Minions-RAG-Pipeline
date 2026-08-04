@@ -1,0 +1,79 @@
+---
+title: "Getting Around Vietnam"
+source: "https://vietnam.travel/plan-your-trip/transport-within-vietnam"
+authority: "Cục Du lịch Quốc gia Việt Nam (Vietnam Tourism)"
+document_id: "getting-around-vietnam"
+topic: "di chuyển nội địa; tàu; xe; máy bay; taxi"
+source_type: "official_travel_guide"
+language: "en"
+---
+# Getting Around Vietnam
+
+Transport within Vietnam
+Just like the diversity of its landscapes, Vietnam offers a variety of ways to get around. You may favour windswept motorbike rides, fly straight from point to point, or take the overland routes of trains and buses, soaking in the sights along the way.
+With a little planning (and an adventurous spirit), you can usually get where you want to go easily and comfortably. Within the cities there are plenty of taxis, buses, and cyclos; and out in the countryside, cycling is often an appealing option. Below is an overview of your transport options within Vietnam.
+Flights in Vietnam
+For those short on time, flying
+is the most convenient way to see several destinations within Vietnam. Many travellers underestimate the distance (and state of the roads) between cities and opt for buses or trains instead of flying. It's good to note that train rides from Hanoi to Ho Chi Minh City can run up to 30 hours, and from Central Vietnam to either point, 16 hours is quite common. In light of this, it makes a lot of sense to opt for a one- or two-hour plane ride and spend more time in your destination. Prices for domestic tickets are surprisingly reasonable, and there are daily flights to all of the country's top destinations.
+Vietnam Airlines
+is the national carrier and has the most flights daily, while
+Vietjet
+,
+Bamboo Airways
+and
+Pacific Airlines
+both offer affordable deals for short hops around the country.
+Trains in Vietnam
+Averaging about 40km an hour, Vietnam's trains are an insightful and relaxing way to journey through the country. The North and South are connected by a single, 2,600km-track network managed by
+Vietnam Railways
+.
+The track snakes through the country from Ho Chi Minh City all the way to the Chinese border. Spring for the soft seats and four-berth cabins for a little extra comfort, or splurge on one of the private tourist sleeping cars that are now available for several key routes. The railroad line is undergoing renovations as much of the existing tracks date back to colonial times, so be sure to research before you go.
+Hanoi Train Station Address
+: 120 Lê Duẩn, Cửa Nam, Hoàn Kiếm, Hà Nội, Vietnam
+Ho Chi Minh City Train Station Address
+: 1 Nguyễn Thông, phường 9, Quận 3, Hồ Chí Minh, Vietnam
+Buying train tickets in Vietnam
+You can buy your train tickets at counters in Vietnam's train stations days or months in advance of your trip, depending on the route. Train tickets are also sold through many travel agencies and online through Vietnam's
+official train ticketing website
+.
+Children above 5 years old are charged the full ticket price.
+All trains have western and squat toilets on both ends of every carriage.
+Luggage transport and freight forward service is available on Reunification Express Trains (see below.)
+If you're traveling during Vietnamese holidays and peak times, be sure to book your train tickets well in advance. On ordinary days it's still a good idea to buy your tickets a few days early. If you're trying to buy tickets for same-day travel, you can expect the faster trains and best seats to be taken.
+The Reunification Express
+The Reunification Express isn’t really a train. It's a line connecting Hanoi and Ho Chi Minh City, completed by the French in 1936. The
+36-hour
+scenic ride makes stops in Hue, Danang, Nha Trang, and Phan Thiet. A slow but memorable journey, five Reunification Express services run daily (7:30PM; 10PM; 6AM; 9AM; 1:10PM) from both Hanoi and Ho Chi Minh City. There are four classes to choose from: hard seat, soft seat, hard sleeper, and soft sleeper. The cabins are divided into four berths with simple bedding provided.
+Buses in Vietnam
+Open-tour buses are an increasingly popular service for budget travelers, especially in Vietnam's southern and central regions. Buses run regularly and reliably between top destinations such as Hanoi, Hue, Hoi An, Nha Trang, Da Lat, Mui Ne, and Ho Chi Minh City. Most open tour buses are sleeper buses, or have deep reclining chairs. A simple Google search will bring up the most reputed open-tour bus companies. We recommend booking one or two days ahead, unless you're travelling on a Vietnamese holiday: then you'll want to book seats at least two weeks in advance.
+Motorbikes in Vietnam
+Vietnam's quintessential mode of transport, motorbikes are the most convenient way to travel short distances. Independent travellers may like to try long-distance motorbiking for the adventure and spectacular views. Novice motorists should be careful on Vietnam's streets and observe the local style of driving, which is more ebb and flow than 'follow the rules'. You’ll find motorbike rental shops in almost every city. Prices depend on the quality of the bike, ranging from 150,000 to 300,000 VND/day for scooters and mopeds. You can expect to leave a deposit or your passport if you're renting for more than a week. When in Vietnam, never park your motorbike unattended,
+always wear a helmet
+, and be sure to check the ticket number if you leave it in a parking lot.
+Cycling in Vietnam
+Whether you're an avid cyclist or just enjoy a little pedal now and then, Vietnam will reawaken your love for this mode of transport. Although it's possible to cycle in the cities, Vietnam's small towns and beach destinations are perfect for two-wheeled excursions. Some of the country's best guided tours are in fact bicycle tours. You'll find these in the Mekong Delta and in Central Vietnam. In towns such as Hoi An and Hue, it's possible to get to almost everywhere you want to go by bicycle (many of the locals do.) Rentals are usually about 20,000 to 30,000 VND per day (about 1$.)
+International Carriers
+Bamboo Airways
+www.bambooairways.com
+VietJet Air
+www.vietjetair.com
+Vietnam Airlines
+www.vietnamairlines.com
+No data found
+You are here:
+Home
+Plan your trip
+Transport within Vietnam
+×
+Close
+Create an account
+×
+Close
+Sign in
+×
+Close
+Forgot Password
+×
+Close
+oops
+The entered email has subscribed for Vietnam Tourism monthly newsletter
