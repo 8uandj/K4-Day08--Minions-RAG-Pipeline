@@ -1,0 +1,29 @@
+# Frontend runtime requirements
+Node.js >= 20
+npm >= 10
+
+# Install packages
+npm install
+
+# Run development UI
+npm run dev
+
+# Build production bundle
+npm run build
+
+# Runtime URLs
+Backend FastAPI: http://localhost:8000
+Frontend Vite: http://localhost:5173
+
+# Main frontend dependencies
+react ^19.2.8
+react-dom ^19.2.8
+vite ^8.2.0
+@vitejs/plugin-react ^6.0.4
+tailwindcss ^4.3.3
+@tailwindcss/vite ^4.3.3
+lucide-react ^1.28.0
+framer-motion ^12.43.0
+clsx ^2.1.1
+tailwind-merge ^3.6.0
+oxlint ^1.75.0

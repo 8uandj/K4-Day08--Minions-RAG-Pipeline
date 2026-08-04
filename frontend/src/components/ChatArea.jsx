@@ -2,6 +2,7 @@ import React, { useRef, useEffect } from 'react';
 import ChatHeader from './ChatHeader';
 import ChatMessage from './ChatMessage';
 import InputBar from './InputBar';
+import RagPipelineVisual from './RagPipelineVisual';
 import { Compass, Zap } from 'lucide-react';
 
 const SUGGESTIONS_BY_CATEGORY = {
@@ -118,7 +119,8 @@ export default function ChatArea({
   onToggleMobileSidebar,
   onSelectTopic,
   isGenerating,
-  ragParams
+  ragParams,
+  dbStatus
 }) {
   const messagesEndRef = useRef(null);
 
@@ -145,6 +147,13 @@ export default function ChatArea({
 
       {/* Main Message Scroll Area */}
       <div className="flex-1 overflow-y-auto p-4 sm:p-6 custom-scrollbar space-y-4">
+        <RagPipelineVisual
+          messages={messages}
+          ragParams={ragParams}
+          dbStatus={dbStatus}
+          isGenerating={isGenerating}
+        />
+
         {messages.length === 0 ? (
           /* Empty Welcome State */
           <div className="h-full flex flex-col items-center justify-center text-center max-w-2xl mx-auto py-12 space-y-6">

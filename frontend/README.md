@@ -1,16 +1,49 @@
-# React + Vite
+# Frontend Requirements & Run Guide
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+Frontend này dùng React + Vite và gọi backend FastAPI qua proxy `/api`.
 
-Currently, two official plugins are available:
+## Requirements
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+- Node.js >= 20
+- npm >= 10
+- Backend chạy tại `http://localhost:8000`
 
-## React Compiler
+## Install
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+Chạy trong thư mục `frontend`:
 
-## Expanding the Oxlint configuration
+```bash
+npm install
+```
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and Oxlint's TypeScript related rules in your project.
+## Run Frontend
+
+```bash
+npm run dev
+```
+
+Mở trình duyệt tại:
+
+```text
+http://localhost:5173
+```
+
+## Run Backend
+
+Từ thư mục gốc của project:
+
+```bash
+python -m uvicorn app:app --reload --port 8000
+```
+
+## Build
+
+```bash
+npm run build
+```
+
+## Lint
+
+```bash
+npm run lint
+```

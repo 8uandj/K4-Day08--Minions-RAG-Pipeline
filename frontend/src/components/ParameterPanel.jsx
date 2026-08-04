@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Sliders, ToggleLeft, ToggleRight, Database, Scissors, Eye, Layers, Filter, ShieldAlert, Compass, MapPin, Zap, FileText, Search, BookOpen, ExternalLink } from 'lucide-react';
+import { Sliders, ToggleLeft, ToggleRight, Database, Scissors, Layers, Filter, ShieldAlert, Compass, MapPin, Zap, FileText, Search, BookOpen } from 'lucide-react';
 import { fetchDocuments } from '../services/api';
 
 const CHUNKING_METHODS = [
@@ -8,8 +8,6 @@ const CHUNKING_METHODS = [
   { id: 'Fixed Size', label: 'Fixed Size', desc: 'Cắt cố định theo số ký tự' },
   { id: 'Markdown Header Aware', label: 'Markdown Header', desc: 'Tách theo tiêu đề # ## ###' }
 ];
-
-const SAMPLE_TEXT = "Hà Giang là vùng đất thiên nhiên hùng vĩ với con đèo Mã Pí Lèng nổi tiếng. Khi phượt xe máy, du khách cần lưu ý tốc độ dưới 30km/h khi qua các khúc cua gấp. Sương mù ban sáng xuất hiện dày đặc từ tháng 10 đến tháng 12. Thưởng thức bánh cuốn canh và lẩu gà đen tại phố cổ Đồng Văn là trải nghiệm không thể bỏ qua.";
 
 export default function ParameterPanel({ ragParams, setRagParams, dbStatus, configMeta }) {
   const [activeTab, setActiveTab] = useState('retrieval'); // 'retrieval' | 'chunking' | 'documents'
@@ -28,7 +26,7 @@ export default function ParameterPanel({ ragParams, setRagParams, dbStatus, conf
         setIsLoadingDocs(false);
       });
     }
-  }, [activeTab]);
+  }, [activeTab, documentsList.length]);
 
   const destinationsList = (configMeta && configMeta.destinations) || [
     { id: 'all', name: 'Tất cả địa điểm' },

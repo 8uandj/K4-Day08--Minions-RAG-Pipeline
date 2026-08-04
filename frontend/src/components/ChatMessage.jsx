@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { Compass, User, Copy, Check, Zap, Bookmark, MapPin, Sun, Sunrise, Sunset, Moon, Sparkles } from 'lucide-react';
+import { Compass, User, Copy, Check, Zap, Bookmark, Sun, Sunrise, Sunset, Moon, Sparkles } from 'lucide-react';
 import CitationCard from './CitationCard';
 import { ItineraryWidget, CostTableWidget, FoodGridWidget } from './RichWidgets';
 
@@ -117,7 +117,7 @@ export default function ChatMessage({ message }) {
       }
 
       // Check for List items: -, *, •, 1., 2.
-      const listMatch = trimmed.match(/^([-\*•]\s+|\d+\.\s+)(.*)/);
+      const listMatch = trimmed.match(/^([-*•]\s+|\d+\.\s+)(.*)/);
       if (listMatch) {
         const prefix = listMatch[1];
         const itemContent = listMatch[2].trim();

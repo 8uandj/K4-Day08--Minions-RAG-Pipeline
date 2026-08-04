@@ -200,6 +200,7 @@ export default function App() {
         isGenerating={isGenerating}
         suggestedChips={suggestedChips}
         ragParams={ragParams}
+        dbStatus={dbStatus}
       />
     </div>
   );
