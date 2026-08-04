@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
-import { Sliders, ToggleLeft, ToggleRight, Database, Scissors, Eye, Layers, Filter, ShieldAlert, Compass, MapPin, Zap } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Sliders, ToggleLeft, ToggleRight, Database, Scissors, Eye, Layers, Filter, ShieldAlert, Compass, MapPin, Zap, FileText, Search, BookOpen, ExternalLink } from 'lucide-react';
+import { fetchDocuments } from '../services/api';
 
 const CHUNKING_METHODS = [
   { id: 'Recursive Character', label: 'Recursive Char', desc: 'Tách theo khoảng trắng & ngắt câu' },
@@ -11,8 +12,23 @@ const CHUNKING_METHODS = [
 const SAMPLE_TEXT = "Hà Giang là vùng đất thiên nhiên hùng vĩ với con đèo Mã Pí Lèng nổi tiếng. Khi phượt xe máy, du khách cần lưu ý tốc độ dưới 30km/h khi qua các khúc cua gấp. Sương mù ban sáng xuất hiện dày đặc từ tháng 10 đến tháng 12. Thưởng thức bánh cuốn canh và lẩu gà đen tại phố cổ Đồng Văn là trải nghiệm không thể bỏ qua.";
 
 export default function ParameterPanel({ ragParams, setRagParams, dbStatus, configMeta }) {
-  const [activeTab, setActiveTab] = useState('retrieval'); // 'retrieval' | 'chunking'
+  const [activeTab, setActiveTab] = useState('retrieval'); // 'retrieval' | 'chunking' | 'documents'
+  const [documentsList, setDocumentsList] = useState([]);
+  const [docSearchQuery, setDocSearchQuery] = useState('');
+  const [docCategoryFilter, setDocCategoryFilter] = useState('all'); // 'all' | 'news' | 'legal'
+  const [isLoadingDocs, setIsLoadingDocs] = useState(false);
+
   const isConnected = !dbStatus || dbStatus.includes('Connected') || dbStatus.includes('ok');
+
+  useEffect(() => {
+    if (activeTab === 'documents' && documentsList.length === 0) {
+      setIsLoadingDocs(true);
+      fetchDocuments().then((res) => {
+        setDocumentsList(res.documents || []);
+        setIsLoadingDocs(false);
+      });
+    }
+  }, [activeTab]);
 
   const destinationsList = (configMeta && configMeta.destinations) || [
     { id: 'all', name: 'Tất cả địa điểm' },
@@ -29,28 +45,14 @@ export default function ParameterPanel({ ragParams, setRagParams, dbStatus, conf
     { id: 'legal', label: 'Pháp lý (Legal)', icon: <ShieldAlert className="w-3.5 h-3.5 text-amber-600" />, desc: 'Chỉ tra cứu Visa, E-visa, Y tế & An toàn' }
   ];
 
-  // Compute live preview chunks for sample text
-  const getSimulatedChunks = () => {
-    const size = ragParams.chunkSize || 512;
-    const overlap = ragParams.chunkOverlap || 50;
-
-    const chunk1Text = SAMPLE_TEXT.slice(0, Math.min(size, SAMPLE_TEXT.length));
-    const overlapStart = Math.max(0, chunk1Text.length - overlap);
-    const overlapText = chunk1Text.slice(overlapStart);
-    const nonOverlapChunk1 = chunk1Text.slice(0, overlapStart);
-    const chunk2Start = Math.max(0, chunk1Text.length - overlap);
-    const chunk2Text = SAMPLE_TEXT.slice(chunk2Start, Math.min(chunk2Start + size, SAMPLE_TEXT.length));
-
-    return {
-      nonOverlapChunk1,
-      overlapText,
-      chunk2Text: chunk2Text.slice(overlapText.length),
-      chunk1Length: chunk1Text.length,
-      estimatedTokens: Math.round(size / 4)
-    };
-  };
-
-  const preview = getSimulatedChunks();
+  const filteredDocs = documentsList.filter((doc) => {
+    const matchesCat = docCategoryFilter === 'all' || doc.category === docCategoryFilter;
+    const matchesSearch =
+      !docSearchQuery ||
+      doc.title.toLowerCase().includes(docSearchQuery.toLowerCase()) ||
+      doc.filename.toLowerCase().includes(docSearchQuery.toLowerCase());
+    return matchesCat && matchesSearch;
+  });
 
   const getAlphaLabel = (val) => {
     if (val === 1.0) return 'Pure Dense (Vector)';
@@ -76,8 +78,8 @@ export default function ParameterPanel({ ragParams, setRagParams, dbStatus, conf
         </span>
       </div>
 
-      {/* Tab Switcher: Retrieval vs Chunking */}
-      <div className="flex p-1 bg-white rounded-xl border border-slate-200 shadow-2xs text-xs font-bold">
+      {/* Tab Switcher: Retrieval vs Chunking vs Documents */}
+      <div className="flex p-1 bg-white rounded-xl border border-slate-200 shadow-2xs text-[11px] font-bold">
         <button
           onClick={() => setActiveTab('retrieval')}
           className={`flex-1 py-1.5 rounded-lg transition-all flex items-center justify-center gap-1 ${
@@ -87,7 +89,7 @@ export default function ParameterPanel({ ragParams, setRagParams, dbStatus, conf
           }`}
         >
           <Layers className="w-3.5 h-3.5" />
-          RAG Pipeline
+          Pipeline
         </button>
 
         <button
@@ -98,8 +100,20 @@ export default function ParameterPanel({ ragParams, setRagParams, dbStatus, conf
               : 'text-slate-600 hover:text-slate-900'
           }`}
         >
-          <Scissors className="w-3.5 h-3.5 ml-1.5" />
-          Chunking Strategy
+          <Scissors className="w-3.5 h-3.5" />
+          Chunking
+        </button>
+
+        <button
+          onClick={() => setActiveTab('documents')}
+          className={`flex-1 py-1.5 rounded-lg transition-all flex items-center justify-center gap-1 ${
+            activeTab === 'documents'
+              ? 'bg-teal-600 text-white shadow-xs'
+              : 'text-slate-600 hover:text-slate-900'
+          }`}
+        >
+          <BookOpen className="w-3.5 h-3.5" />
+          Tài Liệu ({documentsList.length || 25})
         </button>
       </div>
 
@@ -158,14 +172,12 @@ export default function ParameterPanel({ ragParams, setRagParams, dbStatus, conf
           <div className="space-y-1 p-2 rounded-xl bg-white border border-slate-200 shadow-2xs">
             <div className="flex justify-between items-center text-xs">
               <span className="text-slate-800 font-bold flex items-center gap-1">
-                <Zap className="w-3.5 h-3.5 text-amber-500" /> Hybrid Alpha Weight
+                <Sliders className="w-3.5 h-3.5 text-teal-600" />
+                Hybrid Search Weight (α)
               </span>
-              <span className="font-mono text-teal-700 font-bold px-1.5 py-0.5 rounded bg-teal-50 border border-teal-200 text-[10px]">
-                α = {ragParams.alpha !== undefined ? ragParams.alpha : 0.5}
+              <span className="font-mono text-teal-800 font-bold bg-teal-50 px-1.5 py-0.5 rounded border border-teal-200 text-[10px]">
+                {ragParams.alpha !== undefined ? ragParams.alpha : 0.5}
               </span>
-            </div>
-            <div className="text-[10px] text-slate-500 italic">
-              {getAlphaLabel(ragParams.alpha !== undefined ? ragParams.alpha : 0.5)}
             </div>
             <input
               type="range"
@@ -174,174 +186,261 @@ export default function ParameterPanel({ ragParams, setRagParams, dbStatus, conf
               step="0.1"
               value={ragParams.alpha !== undefined ? ragParams.alpha : 0.5}
               onChange={(e) => setRagParams((prev) => ({ ...prev, alpha: parseFloat(e.target.value) }))}
-              className="w-full h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-teal-600"
+              className="w-full accent-teal-600 h-1.5 bg-slate-200 rounded-lg cursor-pointer"
             />
-            <div className="flex justify-between text-[9px] text-slate-500 font-mono">
-              <span>0.0 (BM25)</span>
-              <span>0.5 (Hybrid)</span>
-              <span>1.0 (Dense)</span>
-            </div>
+            <p className="text-[10px] text-slate-500 italic text-center font-medium">
+              {getAlphaLabel(ragParams.alpha !== undefined ? ragParams.alpha : 0.5)}
+            </p>
           </div>
 
-          {/* Top-K Slider */}
-          <div className="space-y-1">
+          {/* Top-K Chunks Slider */}
+          <div className="space-y-1 p-2 rounded-xl bg-white border border-slate-200 shadow-2xs">
             <div className="flex justify-between items-center text-xs">
-              <span className="text-slate-700 font-medium">Top-K Documents</span>
-              <span className="font-mono text-teal-700 font-bold px-1.5 py-0.5 rounded bg-white border border-teal-300 shadow-2xs">
-                {ragParams.topK} docs
+              <span className="text-slate-700 font-semibold flex items-center gap-1">
+                <Layers className="w-3.5 h-3.5 text-teal-600" /> Top-K Chunks
+              </span>
+              <span className="font-mono text-teal-800 font-bold bg-teal-50 px-1.5 py-0.5 rounded border border-teal-200 text-[10px]">
+                {ragParams.topK || 5} chunks
               </span>
             </div>
             <input
               type="range"
               min="1"
-              max="10"
-              value={ragParams.topK}
-              onChange={(e) => setRagParams((prev) => ({ ...prev, topK: parseInt(e.target.value) }))}
-              className="w-full h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-teal-600"
+              max="15"
+              step="1"
+              value={ragParams.topK || 5}
+              onChange={(e) => setRagParams((prev) => ({ ...prev, topK: parseInt(e.target.value, 10) }))}
+              className="w-full accent-teal-600 h-1.5 bg-slate-200 rounded-lg cursor-pointer"
             />
           </div>
 
-          {/* HyDE Toggle */}
-          <div className="flex items-center justify-between p-2 rounded-xl bg-white border border-slate-200/80 shadow-2xs">
-            <div>
-              <div className="text-xs font-semibold text-slate-800">HyDE Embeddings</div>
-              <div className="text-[10px] text-slate-500">Hypothetical Query Expansion</div>
-            </div>
+          {/* Toggle Switches: HyDE, RRF, Document Reordering */}
+          <div className="space-y-2 pt-1">
+            {/* HyDE Query Expansion */}
             <button
               onClick={() => setRagParams((prev) => ({ ...prev, enableHyDE: !prev.enableHyDE }))}
-              className={`transition-colors p-1 rounded-lg ${
-                ragParams.enableHyDE ? 'text-teal-600' : 'text-slate-400'
-              }`}
+              className="w-full p-2.5 rounded-xl border bg-white flex items-center justify-between text-xs font-semibold hover:border-teal-300 transition-all shadow-2xs"
             >
-              {ragParams.enableHyDE ? <ToggleRight className="w-7 h-7" /> : <ToggleLeft className="w-7 h-7" />}
+              <span className="flex items-center gap-2 text-slate-800 font-bold">
+                <Zap className="w-4 h-4 text-amber-500" />
+                HyDE Query Expansion
+              </span>
+              {ragParams.enableHyDE ? (
+                <ToggleRight className="w-6 h-6 text-teal-600" />
+              ) : (
+                <ToggleLeft className="w-6 h-6 text-slate-400" />
+              )}
             </button>
-          </div>
 
-          {/* RRF Reranking Toggle */}
-          <div className="flex items-center justify-between p-2 rounded-xl bg-white border border-slate-200/80 shadow-2xs">
-            <div>
-              <div className="text-xs font-semibold text-slate-800">RRF Reranking</div>
-              <div className="text-[10px] text-slate-500">Reciprocal Rank Fusion</div>
-            </div>
+            {/* RRF Reranking */}
             <button
               onClick={() => setRagParams((prev) => ({ ...prev, enableRRF: !prev.enableRRF }))}
-              className={`transition-colors p-1 rounded-lg ${
-                ragParams.enableRRF ? 'text-teal-600' : 'text-slate-400'
-              }`}
+              className="w-full p-2.5 rounded-xl border bg-white flex items-center justify-between text-xs font-semibold hover:border-teal-300 transition-all shadow-2xs"
             >
-              {ragParams.enableRRF ? <ToggleRight className="w-7 h-7" /> : <ToggleLeft className="w-7 h-7" />}
+              <span className="flex items-center gap-2 text-slate-800 font-bold">
+                <Database className="w-4 h-4 text-teal-600" />
+                RRF Reranking (Reciprocal Rank)
+              </span>
+              {ragParams.enableRRF ? (
+                <ToggleRight className="w-6 h-6 text-teal-600" />
+              ) : (
+                <ToggleLeft className="w-6 h-6 text-slate-400" />
+              )}
+            </button>
+
+            {/* Document Reordering (Lost-in-the-Middle) */}
+            <button
+              onClick={() => setRagParams((prev) => ({ ...prev, enableReordering: !prev.enableReordering }))}
+              className="w-full p-2.5 rounded-xl border bg-white flex items-center justify-between text-xs font-semibold hover:border-teal-300 transition-all shadow-2xs"
+            >
+              <span className="flex items-center gap-2 text-slate-800 font-bold">
+                <Layers className="w-4 h-4 text-purple-600" />
+                Document Reordering (Lost-in-the-Middle)
+              </span>
+              {ragParams.enableReordering !== false ? (
+                <ToggleRight className="w-6 h-6 text-teal-600" />
+              ) : (
+                <ToggleLeft className="w-6 h-6 text-slate-400" />
+              )}
             </button>
           </div>
         </div>
       )}
 
-      {/* TAB 2: CHUNKING & INDEXING SETTINGS */}
+      {/* TAB 2: CHUNKING STRATEGY */}
       {activeTab === 'chunking' && (
         <div className="space-y-3 pt-1">
-          {/* Chunking Method Chips */}
-          <div className="space-y-1">
-            <label className="text-xs font-semibold text-slate-700">Phương pháp Chunking (Method)</label>
+          {/* Chunking Method Radio Selectors */}
+          <div className="space-y-1.5">
+            <label className="text-xs font-semibold text-slate-700 flex items-center gap-1">
+              <Scissors className="w-3.5 h-3.5 text-teal-600" /> Chunking Strategy
+            </label>
             <div className="grid grid-cols-2 gap-1.5">
               {CHUNKING_METHODS.map((m) => (
                 <button
                   key={m.id}
                   onClick={() => setRagParams((prev) => ({ ...prev, chunkingMethod: m.id }))}
-                  className={`p-1.5 text-left rounded-lg border text-[11px] font-semibold transition-all ${
-                    ragParams.chunkingMethod === m.id
-                      ? 'bg-teal-600 text-white border-teal-600 shadow-xs'
-                      : 'bg-white text-slate-700 border-slate-200 hover:border-teal-300'
+                  className={`p-2 rounded-xl border text-left text-xs transition-all ${
+                    (ragParams.chunkingMethod || 'Recursive Character') === m.id
+                      ? 'border-teal-600 bg-teal-50/80 text-teal-900 shadow-2xs font-bold'
+                      : 'border-slate-200 bg-white text-slate-600 hover:border-teal-200'
                   }`}
-                  title={m.desc}
                 >
-                  <div className="truncate">{m.label}</div>
+                  <div className="truncate font-bold">{m.label}</div>
+                  <div className="text-[10px] text-slate-500 truncate mt-0.5">{m.desc}</div>
                 </button>
               ))}
             </div>
           </div>
 
           {/* Chunk Size Slider */}
-          <div className="space-y-1">
+          <div className="space-y-1 p-2 rounded-xl bg-white border border-slate-200 shadow-2xs">
             <div className="flex justify-between items-center text-xs">
-              <span className="text-slate-700 font-medium">Chunk Size</span>
-              <div className="flex items-center gap-1">
-                <span className="font-mono text-teal-800 font-bold text-[11px] px-1.5 py-0.5 rounded bg-white border border-teal-300">
-                  {ragParams.chunkSize || 512} chars
-                </span>
-                <span className="text-[10px] font-semibold px-1 py-0.5 rounded bg-amber-100 text-amber-800 border border-amber-200">
-                  ~{preview.estimatedTokens} tokens
-                </span>
-              </div>
+              <span className="text-slate-700 font-semibold">Chunk Size (chars)</span>
+              <span className="font-mono text-teal-800 font-bold bg-teal-50 px-1.5 py-0.5 rounded border border-teal-200 text-[10px]">
+                {ragParams.chunkSize || 512} chars
+              </span>
             </div>
             <input
               type="range"
               min="128"
               max="2048"
-              step="32"
+              step="64"
               value={ragParams.chunkSize || 512}
-              onChange={(e) => setRagParams((prev) => ({ ...prev, chunkSize: parseInt(e.target.value) }))}
-              className="w-full h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-teal-600"
+              onChange={(e) => setRagParams((prev) => ({ ...prev, chunkSize: parseInt(e.target.value, 10) }))}
+              className="w-full accent-teal-600 h-1.5 bg-slate-200 rounded-lg cursor-pointer"
             />
           </div>
 
           {/* Chunk Overlap Slider */}
-          <div className="space-y-1">
+          <div className="space-y-1 p-2 rounded-xl bg-white border border-slate-200 shadow-2xs">
             <div className="flex justify-between items-center text-xs">
-              <span className="text-slate-700 font-medium">Chunk Overlap</span>
-              <span className="font-mono text-amber-800 font-bold text-[11px] px-1.5 py-0.5 rounded bg-amber-50 border border-amber-300">
+              <span className="text-slate-700 font-semibold">Chunk Overlap</span>
+              <span className="font-mono text-teal-800 font-bold bg-teal-50 px-1.5 py-0.5 rounded border border-teal-200 text-[10px]">
                 {ragParams.chunkOverlap || 50} chars
               </span>
             </div>
             <input
               type="range"
               min="0"
-              max="256"
+              max="300"
               step="10"
               value={ragParams.chunkOverlap || 50}
-              onChange={(e) => setRagParams((prev) => ({ ...prev, chunkOverlap: parseInt(e.target.value) }))}
-              className="w-full h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-amber-500"
+              onChange={(e) => setRagParams((prev) => ({ ...prev, chunkOverlap: parseInt(e.target.value, 10) }))}
+              className="w-full accent-teal-600 h-1.5 bg-slate-200 rounded-lg cursor-pointer"
             />
-          </div>
-
-          {/* Live Visual Chunk Preview Card */}
-          <div className="p-2.5 rounded-xl bg-white border border-teal-200 shadow-2xs space-y-1.5">
-            <div className="flex items-center justify-between text-[11px] font-bold text-teal-800 border-b border-teal-100 pb-1">
-              <span className="flex items-center gap-1">
-                <Eye className="w-3.5 h-3.5 text-teal-600" /> Visual Chunk Preview
-              </span>
-              <span className="text-[10px] text-slate-500 font-normal">Sample Article</span>
-            </div>
-
-            <div className="text-[11px] font-sans leading-relaxed text-slate-700 p-2 rounded bg-slate-50 border border-slate-200">
-              <span className="bg-teal-100 text-teal-900 font-medium rounded px-0.5">
-                {preview.nonOverlapChunk1}
-              </span>
-              {preview.overlapText && (
-                <span className="bg-amber-200 text-amber-950 font-bold underline decoration-amber-500 rounded px-0.5" title="Đoạn Overlap">
-                  {preview.overlapText}
-                </span>
-              )}
-              {preview.chunk2Text && (
-                <span className="bg-sky-100 text-sky-900 font-medium rounded px-0.5 opacity-80">
-                  {preview.chunk2Text}
-                </span>
-              )}
-            </div>
           </div>
         </div>
       )}
 
-      {/* System DB Status */}
-      <div className="flex items-center justify-between pt-1 border-t border-teal-200/60 text-[11px]">
-        <div className="flex items-center gap-1.5 text-slate-600">
-          <Database className="w-3.5 h-3.5 text-sky-600" />
-          <span>Vector Database</span>
+      {/* TAB 3: INDEXED DOCUMENTS CORPUS LIST (SCROLLABLE) */}
+      {activeTab === 'documents' && (
+        <div className="space-y-2.5 pt-1">
+          {/* Header & Filter Controls */}
+          <div className="space-y-1.5">
+            <div className="flex items-center justify-between text-xs font-bold text-slate-800">
+              <span className="flex items-center gap-1.5 text-teal-800">
+                <BookOpen className="w-3.5 h-3.5 text-teal-600" />
+                Indexed Documents Corpus
+              </span>
+              <span className="text-[10px] font-mono bg-teal-100 text-teal-900 px-2 py-0.5 rounded-full border border-teal-300 font-extrabold">
+                {filteredDocs.length} tệp
+              </span>
+            </div>
+
+            {/* Document Search Input */}
+            <div className="relative">
+              <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-2.5" />
+              <input
+                type="text"
+                placeholder="Lọc tên tài liệu..."
+                value={docSearchQuery}
+                onChange={(e) => setDocSearchQuery(e.target.value)}
+                className="w-full text-xs bg-white border border-slate-200 rounded-xl pl-8 pr-2.5 py-1.5 focus:ring-2 focus:ring-teal-500 focus:outline-hidden text-slate-800 font-medium"
+              />
+            </div>
+
+            {/* Category Filter Pills */}
+            <div className="flex gap-1 text-[10px] font-bold">
+              <button
+                onClick={() => setDocCategoryFilter('all')}
+                className={`flex-1 py-1 rounded-lg border transition-all ${
+                  docCategoryFilter === 'all'
+                    ? 'bg-teal-700 text-white border-teal-700'
+                    : 'bg-white text-slate-600 border-slate-200 hover:border-teal-200'
+                }`}
+              >
+                Tất cả ({documentsList.length})
+              </button>
+              <button
+                onClick={() => setDocCategoryFilter('news')}
+                className={`flex-1 py-1 rounded-lg border transition-all ${
+                  docCategoryFilter === 'news'
+                    ? 'bg-teal-700 text-white border-teal-700'
+                    : 'bg-white text-slate-600 border-slate-200 hover:border-teal-200'
+                }`}
+              >
+                Cẩm nang ({documentsList.filter((d) => d.category === 'news').length})
+              </button>
+              <button
+                onClick={() => setDocCategoryFilter('legal')}
+                className={`flex-1 py-1 rounded-lg border transition-all ${
+                  docCategoryFilter === 'legal'
+                    ? 'bg-teal-700 text-white border-teal-700'
+                    : 'bg-white text-slate-600 border-slate-200 hover:border-teal-200'
+                }`}
+              >
+                Pháp lý ({documentsList.filter((d) => d.category === 'legal').length})
+              </button>
+            </div>
+          </div>
+
+          {/* Scrollable Container with Document Items */}
+          <div className="max-h-72 overflow-y-auto space-y-1.5 pr-1 font-mono text-xs scrollbar-thin scrollbar-thumb-teal-300">
+            {isLoadingDocs ? (
+              <div className="p-4 text-center text-xs text-slate-500 animate-pulse font-sans">
+                Đang tải danh sách tài liệu...
+              </div>
+            ) : filteredDocs.length === 0 ? (
+              <div className="p-4 text-center text-xs text-slate-400 font-sans italic">
+                Không tìm thấy tài liệu phù hợp.
+              </div>
+            ) : (
+              filteredDocs.map((doc, idx) => (
+                <div
+                  key={doc.id || idx}
+                  className="p-2.5 rounded-xl bg-white border border-slate-200 hover:border-teal-400 transition-all shadow-2xs space-y-1 group"
+                >
+                  <div className="flex items-center justify-between gap-1">
+                    <span className="font-sans font-bold text-slate-800 text-xs truncate flex items-center gap-1.5" title={doc.title}>
+                      <FileText className="w-3.5 h-3.5 text-teal-600 shrink-0" />
+                      <span className="truncate">{doc.title}</span>
+                    </span>
+                    <span
+                      className={`text-[9px] px-1.5 py-0.2 rounded font-bold shrink-0 border ${
+                        doc.category === 'legal'
+                          ? 'bg-sky-100 text-sky-900 border-sky-300'
+                          : 'bg-emerald-100 text-emerald-900 border-emerald-300'
+                      }`}
+                    >
+                      {doc.category === 'legal' ? 'Legal' : 'News'}
+                    </span>
+                  </div>
+
+                  <div className="flex items-center justify-between text-[10px] text-slate-500 font-mono pt-1 border-t border-slate-100">
+                    <span className="truncate text-teal-800 font-semibold" title={doc.filename}>
+                      {doc.filename}
+                    </span>
+                    <span className="shrink-0 text-slate-400 font-semibold">
+                      ~{doc.estimated_chunks} chunks ({Math.round(doc.char_count / 1000)}k)
+                    </span>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
         </div>
-        <span className={`font-semibold flex items-center gap-1 ${
-          isConnected ? 'text-emerald-700' : 'text-amber-700'
-        }`}>
-          {dbStatus || 'Connected'}
-        </span>
-      </div>
+      )}
     </div>
   );
 }

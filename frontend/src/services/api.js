@@ -198,3 +198,49 @@ export async function sendChatMessage({
     };
   }
 }
+
+/**
+ * Fetch all input documents indexed in the RAG Pipeline
+ */
+export async function fetchDocuments() {
+  try {
+    const response = await fetch(`${API_BASE_URL}/documents`);
+    if (!response.ok) {
+      throw new Error(`Failed to fetch documents ${response.status}`);
+    }
+    const data = await response.json();
+    return data;
+  } catch (error) {
+    console.warn('⚠️ Documents fetch offline, using fallback list:', error.message);
+    return {
+      total: 25,
+      documents: [
+        { id: 'ha-noi-cam-nang-diem-den.md', filename: 'ha-noi-cam-nang-diem-den.md', title: 'Cẩm nang du lịch Hà Nội', category: 'news', char_count: 4449, estimated_chunks: 8 },
+        { id: 'phu-quoc-cam-nang-diem-den.md', filename: 'phu-quoc-cam-nang-diem-den.md', title: 'Cẩm nang du lịch Phú Quốc', category: 'news', char_count: 3573, estimated_chunks: 7 },
+        { id: 'da-nang-cam-nang-diem-den.md', filename: 'da-nang-cam-nang-diem-den.md', title: 'Cẩm nang du lịch Đà Nẵng', category: 'news', char_count: 4075, estimated_chunks: 8 },
+        { id: 'da-nang-foodie-guide.md', filename: 'da-nang-foodie-guide.md', title: 'Đà Nẵng Foodie Guide', category: 'news', char_count: 6787, estimated_chunks: 13 },
+        { id: 'hoi-an-cam-nang-diem-den.md', filename: 'hoi-an-cam-nang-diem-den.md', title: 'Cẩm nang du lịch Hội An', category: 'news', char_count: 4302, estimated_chunks: 8 },
+        { id: 'sapa-cam-nang-diem-den.md', filename: 'sapa-cam-nang-diem-den.md', title: 'Cẩm nang du lịch Sa Pa', category: 'news', char_count: 4173, estimated_chunks: 8 },
+        { id: 'ha-giang-loop-4-ngay.md', filename: 'ha-giang-loop-4-ngay.md', title: 'Hà Giang Loop 4 Ngày', category: 'news', char_count: 6784, estimated_chunks: 13 },
+        { id: 'ha-giang-kinh-nghiem-dia-phuong.md', filename: 'ha-giang-kinh-nghiem-dia-phuong.md', title: 'Hà Giang Kinh Nghiệm Địa Phương', category: 'news', char_count: 5732, estimated_chunks: 11 },
+        { id: 'hue-cam-nang-diem-den.md', filename: 'hue-cam-nang-diem-den.md', title: 'Cẩm nang du lịch Huế', category: 'news', char_count: 4088, estimated_chunks: 8 },
+        { id: 'quy-nhon-lich-trinh-mot-ngay.md', filename: 'quy-nhon-lich-trinh-mot-ngay.md', title: 'Quy Nhơn 24h Xanh Ngát', category: 'news', char_count: 20785, estimated_chunks: 41 },
+        { id: 'nha-trang-cam-nang-diem-den.md', filename: 'nha-trang-cam-nang-diem-den.md', title: 'Cẩm nang du lịch Nha Trang', category: 'news', char_count: 4201, estimated_chunks: 8 },
+        { id: 'ninh-binh-cam-nang-diem-den.md', filename: 'ninh-binh-cam-nang-diem-den.md', title: 'Cẩm nang du lịch Ninh Bình', category: 'news', char_count: 3973, estimated_chunks: 8 },
+        { id: 'can-tho-cam-nang-diem-den.md', filename: 'can-tho-cam-nang-diem-den.md', title: 'Cẩm nang du lịch Cần Thơ', category: 'news', char_count: 4307, estimated_chunks: 8 },
+        { id: 'da-lat-cam-nang-diem-den.md', filename: 'da-lat-cam-nang-diem-den.md', title: 'Cẩm nang du lịch Đà Lạt', category: 'news', char_count: 4051, estimated_chunks: 8 },
+        { id: 'ho-chi-minh-city-cam-nang-diem-den.md', filename: 'ho-chi-minh-city-cam-nang-diem-den.md', title: 'Cẩm nang du lịch TP.HCM', category: 'news', char_count: 4379, estimated_chunks: 8 },
+        { id: 'phong-nha-cam-nang-diem-den.md', filename: 'phong-nha-cam-nang-diem-den.md', title: 'Cẩm nang Phong Nha - Kẻ Bàng', category: 'news', char_count: 4294, estimated_chunks: 8 },
+        { id: 'am-thuc-duong-pho-viet-nam.md', filename: 'am-thuc-duong-pho-viet-nam.md', title: 'Ẩm thực đường phố Việt Nam', category: 'news', char_count: 6782, estimated_chunks: 13 },
+        { id: 'vietnam-visa-requirements.md', filename: 'vietnam-visa-requirements.md', title: 'Quy định Visa Việt Nam', category: 'legal', char_count: 3106, estimated_chunks: 6 },
+        { id: 'vietnam-e-visa-applications.md', filename: 'vietnam-e-visa-applications.md', title: 'Hướng dẫn nộp E-Visa', category: 'legal', char_count: 2323, estimated_chunks: 5 },
+        { id: 'luat-du-lich-09-2017-qh14.md', filename: 'luat-du-lich-09-2017-qh14.md', title: 'Luật Du lịch số 09/2017/QH14', category: 'legal', char_count: 77126, estimated_chunks: 154 },
+        { id: 'getting-to-vietnam.md', filename: 'getting-to-vietnam.md', title: 'Hướng dẫn di chuyển tới Việt Nam', category: 'legal', char_count: 5247, estimated_chunks: 10 },
+        { id: 'getting-around-vietnam.md', filename: 'getting-around-vietnam.md', title: 'Hướng dẫn di chuyển trong Việt Nam', category: 'legal', char_count: 6368, estimated_chunks: 12 },
+        { id: 'health-safety-vietnam.md', filename: 'health-safety-vietnam.md', title: 'Sức khỏe & An toàn du lịch', category: 'legal', char_count: 9150, estimated_chunks: 18 },
+        { id: 'cam-nang-cung-duong-phieu-luu-viet-nam.md', filename: 'cam-nang-cung-duong-phieu-luu-viet-nam.md', title: 'Cung đường phượt Việt Nam', category: 'legal', char_count: 2019, estimated_chunks: 4 },
+        { id: 'cam-nang-du-lich-ben-vung-viet-nam.md', filename: 'cam-nang-du-lich-ben-vung-viet-nam.md', title: 'Cẩm nang du lịch bền vững', category: 'legal', char_count: 5444, estimated_chunks: 11 }
+      ]
+    };
+  }
+}

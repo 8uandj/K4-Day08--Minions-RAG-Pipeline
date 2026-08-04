@@ -177,6 +177,42 @@ def get_config_metadata():
     }
 
 
+@app.get("/api/documents")
+def get_indexed_documents():
+    """Lấy danh sách toàn bộ các tài liệu đã input và index trong hệ thống RAG."""
+    docs = []
+    standardized_dir = Path(__file__).parent / "data" / "standardized"
+    if standardized_dir.exists():
+        for md_file in sorted(standardized_dir.rglob("*.md")):
+            try:
+                content = md_file.read_text(encoding="utf-8", errors="ignore")
+                filename = md_file.name
+                rel_path = md_file.relative_to(standardized_dir).as_posix()
+                category = "legal" if "legal" in rel_path else "news"
+                
+                title = filename.replace(".md", "").replace("-", " ").title()
+                for line in content.splitlines():
+                    if line.startswith("# "):
+                        title = line.replace("# ", "").strip()
+                        break
+                    elif line.startswith("title:"):
+                        title = line.replace("title:", "").strip().strip('"')
+                        break
+
+                docs.append({
+                    "id": filename,
+                    "filename": filename,
+                    "title": title,
+                    "category": category,
+                    "path": rel_path,
+                    "char_count": len(content),
+                    "estimated_chunks": max(1, len(content) // 500)
+                })
+            except Exception:
+                pass
+    return {"total": len(docs), "documents": docs}
+
+
 @app.get("/api/destinations")
 def get_destinations():
     """Tự động quét danh sách gợi ý chip cho giao diện frontend."""
