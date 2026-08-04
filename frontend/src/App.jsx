@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import Sidebar from './components/Sidebar';
 import ChatArea from './components/ChatArea';
 import { SAMPLE_CHAT_MESSAGES, INITIAL_CONVERSATIONS } from './data/mockData';
-import { sendChatMessage, fetchHealthStatus, fetchDestinations } from './services/api';
+import { sendChatMessage, fetchHealthStatus, fetchDestinations, fetchConfigMeta } from './services/api';
 
 export default function App() {
   const [isCollapsed, setIsCollapsed] = useState(false);
@@ -14,19 +14,22 @@ export default function App() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [dbStatus, setDbStatus] = useState('Checking Vector DB...');
   const [suggestedChips, setSuggestedChips] = useState([]);
+  const [configMeta, setConfigMeta] = useState(null);
 
-  // RAG Control & Chunking Parameters State
+  // Task 9 RAG Control Parameters State
   const [ragParams, setRagParams] = useState({
     topK: 5,
     enableHyDE: true,
-    enablePageIndex: false,
-    docType: 'all', // 'all' | 'news' | 'legal'
+    enableRRF: true,
+    docCategory: 'all', // 'all' | 'news' | 'legal'
+    destinationFilter: 'all', // 'all' | 'ha-noi' | 'phu-quoc' | ...
+    alpha: 0.5, // 0.0 = BM25, 1.0 = Dense, 0.5 = Hybrid
     chunkSize: 512,
     chunkOverlap: 50,
     chunkingMethod: 'Recursive Character'
   });
 
-  // Check Backend & Vector DB health and load destinations on mount
+  // Check Backend, Vector DB health and load config metadata on mount
   useEffect(() => {
     async function loadInitialData() {
       const healthRes = await fetchHealthStatus();
@@ -35,6 +38,11 @@ export default function App() {
         setDbStatus(`Connected (${count} chunks | ${healthRes.embedding_model || 'BAAI/bge-m3'})`);
       } else {
         setDbStatus('Offline Mode (Local Fallback)');
+      }
+
+      const metaRes = await fetchConfigMeta();
+      if (metaRes) {
+        setConfigMeta(metaRes);
       }
 
       const destRes = await fetchDestinations();
@@ -67,7 +75,7 @@ export default function App() {
     handleSendMessage(topic.query);
   };
 
-  // Real API RAG query handling with ChromaDB & Category Filter
+  // Real Task 9 API RAG query handling
   const handleSendMessage = async (text) => {
     if (!text || !text.trim()) return;
 
@@ -87,11 +95,10 @@ export default function App() {
         message: text,
         topK: ragParams.topK,
         useHyDE: ragParams.enableHyDE,
-        usePageIndex: ragParams.enablePageIndex,
-        docType: ragParams.docType,
-        chunkSize: ragParams.chunkSize,
-        chunkOverlap: ragParams.chunkOverlap,
-        chunkingMethod: ragParams.chunkingMethod
+        useRRF: ragParams.enableRRF,
+        docCategory: ragParams.docCategory,
+        destinationFilter: ragParams.destinationFilter,
+        alpha: ragParams.alpha
       });
 
       const assistantMsg = {
@@ -99,6 +106,8 @@ export default function App() {
         sender: 'assistant',
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
         content: apiResult.answer,
+        latencyMs: apiResult.latencyMs,
+        retrievalStats: apiResult.retrievalStats,
         citations: apiResult.citations,
         itinerary: apiResult.itinerary,
         costSummary: apiResult.costSummary,
@@ -144,12 +153,13 @@ export default function App() {
           ragParams={ragParams}
           setRagParams={setRagParams}
           dbStatus={dbStatus}
+          configMeta={configMeta}
         />
       </div>
 
       {/* Mobile Drawer Overlay */}
       {mobileSidebarOpen && (
-        <div className="md:hidden flex fixed inset-0 z-50">
+        <div className="hidden md:hidden fixed inset-0 z-50">
           <div
             className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs"
             onClick={() => setMobileSidebarOpen(false)}
@@ -172,6 +182,7 @@ export default function App() {
               ragParams={ragParams}
               setRagParams={setRagParams}
               dbStatus={dbStatus}
+              configMeta={configMeta}
             />
           </div>
         </div>
@@ -188,6 +199,7 @@ export default function App() {
         onSelectTopic={handleSelectTopic}
         isGenerating={isGenerating}
         suggestedChips={suggestedChips}
+        ragParams={ragParams}
       />
     </div>
   );

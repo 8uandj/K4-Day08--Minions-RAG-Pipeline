@@ -2,8 +2,112 @@ import React, { useRef, useEffect } from 'react';
 import ChatHeader from './ChatHeader';
 import ChatMessage from './ChatMessage';
 import InputBar from './InputBar';
-import { SUGGESTED_TOPICS } from '../data/mockData';
-import { Compass } from 'lucide-react';
+import { Compass, Zap } from 'lucide-react';
+
+const SUGGESTIONS_BY_CATEGORY = {
+  all: [
+    {
+      id: 'evisa-legal',
+      icon: '📑',
+      title: 'Quy định E-Visa mới nhất 2026',
+      subtitle: 'Thủ tục visa điện tử & 45 ngày miễn thị thực',
+      query: 'Cần chuẩn bị những thủ tục visa gì và quy định nhập cảnh mới nhất khi tới Việt Nam?',
+      category: 'legal'
+    },
+    {
+      id: 'phu-quoc',
+      icon: '🏝️',
+      title: 'Kinh nghiệm du lịch Phú Quốc',
+      subtitle: 'Bãi Sao, hòn Thơm, lặn ngắm san hô & hải sản',
+      query: 'Lập lịch trình du lịch Phú Quốc 3N2Đ tự túc chi tiết, gợi ý các bãi biển đẹp và hải sản ngon.',
+      category: 'news'
+    },
+    {
+      id: 'hanoi-food',
+      icon: '🍜',
+      title: 'Món ăn nên thử ở Hà Nội',
+      subtitle: 'Phở gia truyền, bún chả, cà phê trứng',
+      query: 'Danh sách các món ăn đặc sản Hà Nội nhất định phải thử kèm địa chỉ chuẩn vị local ở Phố Cổ.',
+      category: 'news'
+    },
+    {
+      id: 'hoian-schedule',
+      icon: '🏮',
+      title: 'Lịch trình 3 ngày ở Hội An',
+      subtitle: 'Thả đèn hoa đăng, cao lầu, biển An Bàng',
+      query: 'Gợi ý lịch trình tham quan Hội An 3 ngày tự túc, check-in phố cổ và nhà cổ.',
+      category: 'news'
+    }
+  ],
+  legal: [
+    {
+      id: 'evisa-latest',
+      icon: '📑',
+      title: 'Quy định E-visa mới nhất',
+      subtitle: 'Thời hạn 90 ngày & các nước được áp dụng',
+      query: 'Quy định E-visa Việt Nam mới nhất hiện nay áp dụng cho những quốc gia nào và thời hạn bao nhiêu ngày?',
+      category: 'legal'
+    },
+    {
+      id: 'visa-free',
+      icon: '🛡️',
+      title: 'Miễn thị thực nhập cảnh',
+      subtitle: 'Danh sách 13 nước miễn visa 45 ngày',
+      query: 'Những quốc gia nào được miễn thị thực tạm trú 45 ngày khi nhập cảnh Việt Nam?',
+      category: 'legal'
+    },
+    {
+      id: 'health-safety',
+      icon: '🏥',
+      title: 'Quy định Y tế & An toàn du lịch',
+      subtitle: 'Bảo hiểm du lịch, tiêm chủng & hotline cấp cứu',
+      query: 'Những lưu ý về y tế, bảo hiểm sức khỏe và an toàn khi du lịch Việt Nam?',
+      category: 'legal'
+    },
+    {
+      id: 'entry-ports',
+      icon: '✈️',
+      title: 'Cửa khẩu chấp nhận E-visa',
+      subtitle: 'Sân bay quốc tế & cửa khẩu đường bộ',
+      query: 'Danh sách các sân bay quốc tế và cửa khẩu chấp nhận nhập cảnh bằng E-visa Việt Nam?',
+      category: 'legal'
+    }
+  ],
+  news: [
+    {
+      id: 'hoian-3days',
+      icon: '🏮',
+      title: 'Lịch trình 3 ngày ở Hội An',
+      subtitle: 'Phố cổ, làng rau Trà Quế & biển An Bàng',
+      query: 'Gợi ý lịch trình du lịch Hội An 3 ngày tự túc, các điểm check-in đẹp và quán ăn truyền thống.',
+      category: 'news'
+    },
+    {
+      id: 'hanoi-must-try',
+      icon: '🍜',
+      title: 'Món ăn nên thử ở Hà Nội',
+      subtitle: 'Phở, bún chả, chả cá Lăng, cà phê trứng',
+      query: 'Top 10 món ăn ẩm thực đường phố Hà Nội ngon nhất định phải thử.',
+      category: 'news'
+    },
+    {
+      id: 'phuquoc-beaches',
+      icon: '🏝️',
+      title: 'Khám phá bãi biển Phú Quốc',
+      subtitle: 'Bãi Kem, Bãi Trường, Hòn Mây Rút',
+      query: 'Các bãi biển đẹp nhất Phú Quốc và kinh nghiệm lặn biển ngắm san hô.',
+      category: 'news'
+    },
+    {
+      id: 'sapa-trekking',
+      icon: '⛰️',
+      title: 'Trekking bản làng Sa Pa',
+      subtitle: 'Fansipan, bản Cát Cát, Mường Hoa',
+      query: 'Lịch trình trekking bản làng Sa Pa 2N1Đ ngắm ruộng bậc thang và săn mây.',
+      category: 'news'
+    }
+  ]
+};
 
 export default function ChatArea({
   messages,
@@ -14,7 +118,7 @@ export default function ChatArea({
   onToggleMobileSidebar,
   onSelectTopic,
   isGenerating,
-  suggestedChips
+  ragParams
 }) {
   const messagesEndRef = useRef(null);
 
@@ -26,7 +130,8 @@ export default function ChatArea({
     scrollToBottom();
   }, [messages, isGenerating]);
 
-  const chipsToDisplay = (suggestedChips && suggestedChips.length > 0) ? suggestedChips : SUGGESTED_TOPICS;
+  const activeCategory = (ragParams && ragParams.docCategory) || 'all';
+  const categoryChips = SUGGESTIONS_BY_CATEGORY[activeCategory] || SUGGESTIONS_BY_CATEGORY.all;
 
   return (
     <div className="flex-1 flex flex-col h-full bg-slate-50/60 relative overflow-hidden">
@@ -52,13 +157,13 @@ export default function ChatArea({
                 Xin chào! Tôi là Trợ Lý Hướng Dẫn Viên Du Lịch AI 🇻🇳
               </h2>
               <p className="text-sm text-slate-600 max-w-lg leading-relaxed font-medium">
-                Tôi được tích hợp hệ thống ChromaDB RAG (204 chunks cẩm nang du lịch & pháp lý nhập cảnh), sẵn sàng lập lịch trình chi tiết, tư vấn visa và gợi ý quán ngon.
+                Tích hợp **Task 9 Hybrid Retrieval Pipeline** (ChromaDB Vector + BM25 + HyDE + RRF Reranking). Chọn chủ đề bên dưới để bắt đầu:
               </p>
             </div>
 
-            {/* Quick Prompt Cards */}
+            {/* Dynamic Category Suggested Prompts */}
             <div className="w-full grid grid-cols-1 sm:grid-cols-2 gap-3 text-left pt-4">
-              {chipsToDisplay.map((topic) => (
+              {categoryChips.map((topic) => (
                 <button
                   key={topic.id}
                   onClick={() => onSelectTopic(topic)}
@@ -91,8 +196,8 @@ export default function ChatArea({
                   <Compass className="w-5 h-5" />
                 </div>
                 <div className="p-3.5 rounded-2xl bg-white border border-slate-200 text-xs text-slate-700 font-medium flex items-center gap-2 shadow-xs">
-                  <span className="w-2.5 h-2.5 rounded-full bg-teal-500 animate-ping" />
-                  Đang truy vấn ChromaDB Vector Store & tổng hợp cẩm nang du lịch...
+                  <Zap className="w-4 h-4 text-amber-500 animate-pulse" />
+                  Đang chạy Task 9 Retrieval Pipeline (HyDE + RRF + ChromaDB & BM25)...
                 </div>
               </div>
             )}

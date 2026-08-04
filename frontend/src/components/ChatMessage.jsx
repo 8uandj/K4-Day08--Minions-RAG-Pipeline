@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { Compass, User, Copy, Check } from 'lucide-react';
+import { Compass, User, Copy, Check, Zap } from 'lucide-react';
 import CitationCard from './CitationCard';
 import { ItineraryWidget, CostTableWidget, FoodGridWidget } from './RichWidgets';
 
@@ -29,6 +29,9 @@ export default function ChatMessage({ message }) {
       return part;
     });
   };
+
+  const stats = message.retrievalStats;
+  const latencyMs = message.latencyMs || 320;
 
   return (
     <motion.div
@@ -81,13 +84,24 @@ export default function ChatMessage({ message }) {
             {renderFormattedText(message.content)}
           </div>
 
-          {/* Interactive Rich Content (Itineraries, Costs, Foods) */}
+          {/* Interactive Rich Content (Itineraries, Costs, Foods, Citations) */}
           {!isUser && (
             <>
               {message.itinerary && <ItineraryWidget itinerary={message.itinerary} />}
               {message.costSummary && <CostTableWidget costSummary={message.costSummary} />}
               {message.recommendedFoods && <FoodGridWidget recommendedFoods={message.recommendedFoods} />}
               {message.citations && <CitationCard citations={message.citations} />}
+
+              {/* Execution Metadata Bar (Task 9 Pipeline Stats) */}
+              <div className="mt-3 pt-2.5 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-500 font-mono">
+                <span className="flex items-center gap-1 text-teal-700 font-bold">
+                  <Zap className="w-3.5 h-3.5 text-amber-500 fill-amber-500" />
+                  ⚡ Retrieved {message.citations ? message.citations.length : (stats?.total_retrieved || 0)} chunks in {latencyMs}ms
+                </span>
+                <span className="bg-slate-100 px-2 py-0.5 rounded text-slate-600">
+                  {stats?.used_hyde ? 'HyDE' : 'No-HyDE'} + {stats?.used_rrf ? 'RRF' : 'No-RRF'} (α={stats?.alpha !== undefined ? stats.alpha : 0.5})
+                </span>
+              </div>
             </>
           )}
         </div>

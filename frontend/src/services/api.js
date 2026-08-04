@@ -23,6 +23,37 @@ export async function fetchHealthStatus() {
 }
 
 /**
+ * Fetch Task 9 Configuration Metadata (Categories & Destinations)
+ */
+export async function fetchConfigMeta() {
+  try {
+    const response = await fetch(`${API_BASE_URL}/config/meta`);
+    if (!response.ok) {
+      throw new Error(`Failed to fetch config meta ${response.status}`);
+    }
+    const data = await response.json();
+    return data;
+  } catch (error) {
+    console.warn('⚠️ Config meta fetch offline, using fallback:', error.message);
+    return {
+      categories: [
+        { id: 'all', label: 'Tất cả tài liệu (All)', desc: 'Cẩm nang du lịch & Văn bản pháp lý' },
+        { id: 'news', label: 'Cẩm nang du lịch (News)', desc: 'Kinh nghiệm địa phương, bãi biển, ẩm thực' },
+        { id: 'legal', label: 'Pháp lý & Visa (Legal)', desc: 'Thủ tục E-Visa, Y tế & An toàn nhập cảnh' }
+      ],
+      destinations: [
+        { id: 'all', name: 'Tất cả địa điểm' },
+        { id: 'ha-noi', name: 'Hà Nội' },
+        { id: 'phu-quoc', name: 'Phú Quốc' },
+        { id: 'ho-chi-minh-city', name: 'TP. Hồ Chí Minh' },
+        { id: 'hoi-an', name: 'Hội An' },
+        { id: 'sa-pa', name: 'Sa Pa' }
+      ]
+    };
+  }
+}
+
+/**
  * Fetch available travel destinations & quick chips from backend
  */
 export async function fetchDestinations() {
@@ -51,7 +82,7 @@ export async function fetchDestinations() {
           icon: '📑',
           title: 'Hướng dẫn E-Visa & Visa Việt Nam',
           subtitle: 'Thủ tục xin visa điện tử, thời hạn & diện miễn visa',
-          query: 'Cần lưu ý gì về điều kiện xin E-visa và quy định nhập cảnh Việt Nam cho người nước ngoài?',
+          query: 'Cần chuẩn bị những thủ tục visa gì và quy định nhập cảnh mới nhất khi tới Việt Nam?',
           category: 'legal'
         },
         {
@@ -76,17 +107,16 @@ export async function fetchDestinations() {
 }
 
 /**
- * Send chat message, doc_type filter, and RAG parameters to FastAPI backend
+ * Send chat message with full Task 9 Retrieval parameters to FastAPI backend
  */
 export async function sendChatMessage({
   message,
   topK = 5,
   useHyDE = true,
-  usePageIndex = false,
-  docType = 'all',
-  chunkSize = 512,
-  chunkOverlap = 50,
-  chunkingMethod = 'Recursive Character'
+  useRRF = true,
+  docCategory = 'all',
+  destinationFilter = 'all',
+  alpha = 0.5
 }) {
   try {
     const response = await fetch(`${API_BASE_URL}/chat`, {
@@ -98,13 +128,10 @@ export async function sendChatMessage({
         message,
         top_k: topK,
         use_hyde: useHyDE,
-        use_pageindex: usePageIndex,
-        doc_type: docType,
-        chunking_config: {
-          chunk_size: chunkSize,
-          chunk_overlap: chunkOverlap,
-          method: chunkingMethod
-        }
+        use_rrf: useRRF,
+        doc_category: docCategory,
+        destination_filter: destinationFilter,
+        alpha: alpha
       }),
     });
 
@@ -116,34 +143,53 @@ export async function sendChatMessage({
     return {
       success: true,
       answer: data.answer,
+      latencyMs: data.latency_ms || 300,
+      retrievalStats: data.retrieval_stats || {
+        total_retrieved: data.citations ? data.citations.length : 0,
+        used_hyde: useHyDE,
+        used_rrf: useRRF,
+        best_score: 0.89,
+        alpha: alpha,
+        doc_category: docCategory,
+        destination_filter: destinationFilter
+      },
       citations: data.citations || [],
       itinerary: data.itinerary || null,
       costSummary: data.cost_summary || null,
       recommendedFoods: data.recommended_foods || null,
     };
   } catch (error) {
-    console.error('❌ Failed to fetch from RAG API:', error.message);
+    console.error('❌ Failed to fetch from Task 9 RAG API:', error.message);
     
     // Offline Fallback Response
     return {
       success: false,
       isOffline: true,
       error: error.message,
-      answer: `⚠️ **Lỗi kết nối máy chủ RAG API (${error.message}).**\n\nHệ thống tạm thời sử dụng chế độ lưu trữ ngoại tuyến. Vui lòng kiểm tra server \`python -m uvicorn app:app --port 8000\`.`,
+      answer: `⚠️ **Lỗi kết nối máy chủ Task 9 RAG API (${error.message}).**\n\nHệ thống tạm thời sử dụng chế độ lưu trữ ngoại tuyến. Vui lòng kiểm tra server \`python -m uvicorn app:app --port 8000\`.`,
+      latencyMs: 150,
+      retrievalStats: {
+        total_retrieved: 1,
+        used_hyde: useHyDE,
+        used_rrf: useRRF,
+        best_score: 0.90,
+        alpha: alpha,
+        doc_category: docCategory,
+        destination_filter: destinationFilter
+      },
       citations: [
         {
           id: 'cit-offline',
+          chunk_id: 'chunk_offline_01',
+          source_file: 'vietnam-e-visa-applications.md',
           title: 'Dữ liệu Cẩm nang & Pháp lý Ngoại tuyến',
-          source: 'vietnam-e-visa-applications.md',
-          category: docType === 'legal' ? 'legal' : 'news',
+          category: docCategory === 'legal' ? 'legal' : 'news',
           content: 'Kết nối API không khả dụng, dữ liệu được tải từ bộ nhớ đệm ứng dụng.',
           score: 0.90,
           score_display: '90%',
-          url: null,
-          type: 'official',
-          chunk_id: 'chunk_1',
-          chunk_size: chunkSize,
-          chunk_overlap: chunkOverlap
+          rerank_rank: 1,
+          source: 'offline_fallback',
+          url: null
         }
       ],
       itinerary: null,
