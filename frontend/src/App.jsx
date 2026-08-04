@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import Sidebar from './components/Sidebar';
 import ChatArea from './components/ChatArea';
 import { SAMPLE_CHAT_MESSAGES, INITIAL_CONVERSATIONS } from './data/mockData';
-import { sendChatMessage, fetchHealthStatus } from './services/api';
+import { sendChatMessage, fetchHealthStatus, fetchDestinations } from './services/api';
 
 export default function App() {
   const [isCollapsed, setIsCollapsed] = useState(false);
@@ -10,31 +10,39 @@ export default function App() {
   const [conversations, setConversations] = useState(INITIAL_CONVERSATIONS);
   const [activeConvId, setActiveConvId] = useState('conv-1');
   const [messages, setMessages] = useState(SAMPLE_CHAT_MESSAGES);
-  const [activeDestination, setActiveDestination] = useState('Hà Giang 3N2Đ - Phượt Xe Máy');
+  const [activeDestination, setActiveDestination] = useState('Hướng Dẫn Visa & Quy Định Nhập Cảnh');
   const [isGenerating, setIsGenerating] = useState(false);
-  const [dbStatus, setDbStatus] = useState('Checking...');
+  const [dbStatus, setDbStatus] = useState('Checking Vector DB...');
+  const [suggestedChips, setSuggestedChips] = useState([]);
 
   // RAG Control & Chunking Parameters State
   const [ragParams, setRagParams] = useState({
     topK: 5,
     enableHyDE: true,
-    enablePageIndex: true,
+    enablePageIndex: false,
+    docType: 'all', // 'all' | 'news' | 'legal'
     chunkSize: 512,
     chunkOverlap: 50,
     chunkingMethod: 'Recursive Character'
   });
 
-  // Check Backend & Vector DB health on mount
+  // Check Backend & Vector DB health and load destinations on mount
   useEffect(() => {
-    async function checkHealth() {
-      const res = await fetchHealthStatus();
-      if (res && res.status === 'ok') {
-        setDbStatus(`Connected (${res.embedding_model || 'BAAI/bge-m3'})`);
+    async function loadInitialData() {
+      const healthRes = await fetchHealthStatus();
+      if (healthRes && healthRes.status === 'ok') {
+        const count = healthRes.document_count || 204;
+        setDbStatus(`Connected (${count} chunks | ${healthRes.embedding_model || 'BAAI/bge-m3'})`);
       } else {
         setDbStatus('Offline Mode (Local Fallback)');
       }
+
+      const destRes = await fetchDestinations();
+      if (destRes && destRes.suggested_chips) {
+        setSuggestedChips(destRes.suggested_chips);
+      }
     }
-    checkHealth();
+    loadInitialData();
   }, []);
 
   // Handle New Chat creation
@@ -42,7 +50,7 @@ export default function App() {
     const newId = `conv-${Date.now()}`;
     const newConv = {
       id: newId,
-      title: 'Chuyến Đi Mới',
+      title: 'Chuyến Đi / Tra Cứu Mới',
       date: 'Vừa xong',
       preview: 'Đang chờ câu hỏi từ bạn...'
     };
@@ -50,7 +58,7 @@ export default function App() {
     setConversations([newConv, ...conversations]);
     setActiveConvId(newId);
     setMessages([]);
-    setActiveDestination('Tạo Chuyến Đi Mới');
+    setActiveDestination('Tra Cứu Thông Tin Mới');
   };
 
   // Handle suggested topic click
@@ -59,7 +67,7 @@ export default function App() {
     handleSendMessage(topic.query);
   };
 
-  // Real API RAG query handling with Chunking Params
+  // Real API RAG query handling with ChromaDB & Category Filter
   const handleSendMessage = async (text) => {
     if (!text || !text.trim()) return;
 
@@ -80,6 +88,7 @@ export default function App() {
         topK: ragParams.topK,
         useHyDE: ragParams.enableHyDE,
         usePageIndex: ragParams.enablePageIndex,
+        docType: ragParams.docType,
         chunkSize: ragParams.chunkSize,
         chunkOverlap: ragParams.chunkOverlap,
         chunkingMethod: ragParams.chunkingMethod
@@ -140,7 +149,7 @@ export default function App() {
 
       {/* Mobile Drawer Overlay */}
       {mobileSidebarOpen && (
-        <div className="md:hidden fixed inset-0 z-50 flex">
+        <div className="md:hidden flex fixed inset-0 z-50">
           <div
             className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs"
             onClick={() => setMobileSidebarOpen(false)}
@@ -178,6 +187,7 @@ export default function App() {
         onToggleMobileSidebar={() => setMobileSidebarOpen(!mobileSidebarOpen)}
         onSelectTopic={handleSelectTopic}
         isGenerating={isGenerating}
+        suggestedChips={suggestedChips}
       />
     </div>
   );

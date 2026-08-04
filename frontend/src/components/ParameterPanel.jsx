@@ -1,11 +1,17 @@
 import React, { useState } from 'react';
-import { Sliders, ToggleLeft, ToggleRight, Database, Scissors, Eye, Layers } from 'lucide-react';
+import { Sliders, ToggleLeft, ToggleRight, Database, Scissors, Eye, Layers, Filter, ShieldAlert, Compass } from 'lucide-react';
 
 const CHUNKING_METHODS = [
   { id: 'Recursive Character', label: 'Recursive Char', desc: 'Tách theo khoảng trắng & ngắt câu' },
   { id: 'Semantic Chunking', label: 'Semantic', desc: 'Tách theo ngữ nghĩa câu' },
   { id: 'Fixed Size', label: 'Fixed Size', desc: 'Cắt cố định theo số ký tự' },
   { id: 'Markdown Header Aware', label: 'Markdown Header', desc: 'Tách theo tiêu đề # ## ###' }
+];
+
+const DOC_CATEGORIES = [
+  { id: 'all', label: 'Tất cả (All)', icon: <Filter className="w-3.5 h-3.5" />, desc: 'Tra cứu toàn bộ tài liệu Cẩm nang & Pháp lý' },
+  { id: 'news', label: 'Cẩm nang (News)', icon: <Compass className="w-3.5 h-3.5 text-teal-600" />, desc: 'Chỉ tra cứu bài viết điểm đến & ẩm thực' },
+  { id: 'legal', label: 'Pháp lý (Legal)', icon: <ShieldAlert className="w-3.5 h-3.5 text-amber-600" />, desc: 'Chỉ tra cứu Visa, E-visa, Y tế & An toàn' }
 ];
 
 const SAMPLE_TEXT = "Hà Giang là vùng đất thiên nhiên hùng vĩ với con đèo Mã Pí Lèng nổi tiếng. Khi phượt xe máy, du khách cần lưu ý tốc độ dưới 30km/h khi qua các khúc cua gấp. Sương mù ban sáng xuất hiện dày đặc từ tháng 10 đến tháng 12. Thưởng thức bánh cuốn canh và lẩu gà đen tại phố cổ Đồng Văn là trải nghiệm không thể bỏ qua.";
@@ -43,7 +49,7 @@ export default function ParameterPanel({ ragParams, setRagParams, dbStatus }) {
   const preview = getSimulatedChunks();
 
   return (
-    <div className="p-3.5 rounded-2xl border border-teal-200/80 bg-teal-50/50 backdrop-blur-md space-y-3 shadow-sm">
+    <div className="p-3.5 rounded-2xl border border-teal-200/80 bg-teal-50/50 backdrop-blur-md space-y-3 shadow-xs">
       {/* Header & Status */}
       <div className="flex items-center justify-between">
         <span className="text-xs font-bold text-teal-800 uppercase tracking-wider flex items-center gap-1.5">
@@ -84,9 +90,38 @@ export default function ParameterPanel({ ragParams, setRagParams, dbStatus }) {
         </button>
       </div>
 
-      {/* TAB 1: RETRIEVAL PARAMS */}
+      {/* TAB 1: RETRIEVAL PARAMS & CATEGORY FILTER */}
       {activeTab === 'retrieval' && (
         <div className="space-y-3 pt-1">
+          {/* Document Category Filter */}
+          <div className="space-y-1">
+            <label className="text-xs font-semibold text-slate-700 flex items-center justify-between">
+              <span className="flex items-center gap-1">
+                <Filter className="w-3.5 h-3.5 text-teal-600" /> Loại Tài Liệu (Doc Type)
+              </span>
+              <span className="text-[10px] font-mono text-teal-800 bg-white px-1.5 py-0.5 rounded border border-teal-200 font-bold">
+                {ragParams.docType || 'all'}
+              </span>
+            </label>
+
+            <div className="grid grid-cols-3 gap-1">
+              {DOC_CATEGORIES.map((cat) => (
+                <button
+                  key={cat.id}
+                  onClick={() => setRagParams((prev) => ({ ...prev, docType: cat.id }))}
+                  className={`p-1.5 rounded-lg border text-[10px] font-bold transition-all flex items-center justify-center gap-1 ${(ragParams.docType || 'all') === cat.id
+                      ? 'bg-teal-700 text-white border-teal-700 shadow-xs'
+                      : 'bg-white text-slate-700 border-slate-200 hover:border-teal-300'
+                    }`}
+                  title={cat.desc}
+                >
+                  {cat.icon}
+                  <span className="truncate">{cat.label.split(' ')[0]}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+
           {/* Top-K Slider */}
           <div className="space-y-1">
             <div className="flex justify-between items-center text-xs">

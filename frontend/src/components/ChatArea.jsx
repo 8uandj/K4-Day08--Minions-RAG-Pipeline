@@ -13,7 +13,8 @@ export default function ChatArea({
   onExportChat,
   onToggleMobileSidebar,
   onSelectTopic,
-  isGenerating
+  isGenerating,
+  suggestedChips
 }) {
   const messagesEndRef = useRef(null);
 
@@ -24,6 +25,8 @@ export default function ChatArea({
   useEffect(() => {
     scrollToBottom();
   }, [messages, isGenerating]);
+
+  const chipsToDisplay = (suggestedChips && suggestedChips.length > 0) ? suggestedChips : SUGGESTED_TOPICS;
 
   return (
     <div className="flex-1 flex flex-col h-full bg-slate-50/60 relative overflow-hidden">
@@ -49,20 +52,20 @@ export default function ChatArea({
                 Xin chào! Tôi là Trợ Lý Hướng Dẫn Viên Du Lịch AI 🇻🇳
               </h2>
               <p className="text-sm text-slate-600 max-w-lg leading-relaxed font-medium">
-                Tôi được tối ưu bởi kiến trúc RAG nâng cao, sẵn sàng lập lịch trình chi tiết, dự trù chi phí, gợi ý quán ngon và điểm check-in chuẩn local.
+                Tôi được tích hợp hệ thống ChromaDB RAG (204 chunks cẩm nang du lịch & pháp lý nhập cảnh), sẵn sàng lập lịch trình chi tiết, tư vấn visa và gợi ý quán ngon.
               </p>
             </div>
 
             {/* Quick Prompt Cards */}
             <div className="w-full grid grid-cols-1 sm:grid-cols-2 gap-3 text-left pt-4">
-              {SUGGESTED_TOPICS.map((topic) => (
+              {chipsToDisplay.map((topic) => (
                 <button
                   key={topic.id}
                   onClick={() => onSelectTopic(topic)}
                   className="p-4 rounded-2xl bg-white border border-slate-200 hover:border-teal-400 transition-all hover:shadow-md hover:shadow-teal-500/10 group flex items-start gap-3 shadow-xs"
                 >
                   <span className="text-2xl p-2 rounded-xl bg-slate-100 group-hover:scale-110 transition-transform">
-                    {topic.icon}
+                    {topic.icon || '📍'}
                   </span>
                   <div>
                     <h3 className="text-sm font-bold text-slate-900 group-hover:text-teal-700 transition-colors">
@@ -89,7 +92,7 @@ export default function ChatArea({
                 </div>
                 <div className="p-3.5 rounded-2xl bg-white border border-slate-200 text-xs text-slate-700 font-medium flex items-center gap-2 shadow-xs">
                   <span className="w-2.5 h-2.5 rounded-full bg-teal-500 animate-ping" />
-                  Đang truy vấn Vector Database & tổng hợp cẩm nang du lịch...
+                  Đang truy vấn ChromaDB Vector Store & tổng hợp cẩm nang du lịch...
                 </div>
               </div>
             )}
