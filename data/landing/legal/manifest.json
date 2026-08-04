@@ -1,0 +1,41 @@
+[
+  {
+    "document_id": "luat-du-lich-09-2017-qh14",
+    "filename": "luat-du-lich-09-2017-qh14.pdf",
+    "title": "Luật Du lịch số 09/2017/QH14",
+    "authority": "Quốc hội nước Cộng hòa Xã hội Chủ nghĩa Việt Nam",
+    "url": "https://congbaocdn.chinhphu.vn/CongBaoCP/VanBan/2017/7/24641/19163-1-2017695-69605-vbhn-vpqh.pdf",
+    "topic": "quyền và nghĩa vụ của khách du lịch; quản lý hoạt động du lịch",
+    "language": "vi",
+    "source_type": "official_legal_document",
+    "local_path": "data/landing/legal/luat-du-lich-09-2017-qh14.pdf",
+    "size_bytes": 614435,
+    "retrieved_at": "2026-08-04T07:50:42.260655+00:00"
+  },
+  {
+    "document_id": "adventure-trails-vietnam",
+    "filename": "cam-nang-cung-duong-phieu-luu-viet-nam.pdf",
+    "title": "Adventure Trails Vietnam",
+    "authority": "Cục Du lịch Quốc gia Việt Nam (Vietnam Tourism)",
+    "url": "https://vietnam.travel/sites/default/files/2021-04/Adventure_Trails_Vietnam.pdf",
+    "topic": "lịch trình gợi ý; di chuyển; du lịch phiêu lưu theo vùng",
+    "language": "en",
+    "source_type": "official_tourism_guide",
+    "local_path": "data/landing/legal/cam-nang-cung-duong-phieu-luu-viet-nam.pdf",
+    "size_bytes": 1222450,
+    "retrieved_at": "2026-08-04T07:50:42.260946+00:00"
+  },
+  {
+    "document_id": "cam-nang-du-lich-ben-vung-viet-nam",
+    "filename": "cam-nang-du-lich-ben-vung-viet-nam.pdf",
+    "title": "A Sustainable Travel Guide to Viet Nam",
+    "authority": "Cục Du lịch Quốc gia Việt Nam (Vietnam Tourism)",
+    "url": "https://vietnam.travel/sites/default/files/2020-09/Sustainable-Travel-Guide.pdf",
+    "topic": "du lịch có trách nhiệm; văn hóa ứng xử; hỗ trợ cộng đồng địa phương",
+    "language": "en",
+    "source_type": "official_tourism_guide",
+    "local_path": "data/landing/legal/cam-nang-du-lich-ben-vung-viet-nam.pdf",
+    "size_bytes": 9052152,
+    "retrieved_at": "2026-08-04T07:50:42.262596+00:00"
+  }
+]
