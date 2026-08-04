@@ -1,17 +1,102 @@
 [
   {
-    "question": "Người mua có thể yêu cầu trả hàng/hoàn tiền trong thời hạn bao lâu sau khi nhận hàng?",
-    "expected_answer": "Trong vòng 15 ngày kể từ khi giao hàng thành công (24 giờ đối với thực phẩm tươi sống/đông lạnh).",
-    "expected_context": "Trang Returns and Refunds Policy, mục Return/Refund Eligibility"
+    "question": "Thời gian nào trong năm thích hợp nhất để du lịch Đà Nẵng?",
+    "expected_answer": "Đà Nẵng có thể tham quan quanh năm, nhưng thời gian đẹp nhất là từ tháng 3 đến tháng 5 và từ tháng 9 đến tháng 10, khi thời tiết ấm áp.",
+    "expected_context": "da-nang-cam-nang-diem-den.md — mục Da Nang Weather"
   },
   {
-    "question": "Shopee hỗ trợ những phương thức thanh toán nào?",
-    "expected_answer": "ShopeePay Wallet, thẻ tín dụng/ghi nợ, trả góp qua thẻ, QR Code, chuyển khoản qua app ngân hàng, thẻ NAPAS, Apple Pay, Google Pay, và COD.",
-    "expected_context": "Trang Payment Methods Overview"
+    "question": "Bán đảo Sơn Trà có loài linh trưởng quý hiếm nào?",
+    "expected_answer": "Các sườn đồi rậm rạp của bán đảo Sơn Trà là nơi sinh sống của voọc chà vá chân đỏ, một loài linh trưởng đang bị đe dọa.",
+    "expected_context": "da-nang-cam-nang-diem-den.md — mục See the Son Tra Peninsula"
   },
   {
-    "question": "Người bán không được đăng bán những sản phẩm nào?",
-    "expected_answer": "Hàng giả/nhái, sản phẩm bất hợp pháp, vi phạm sở hữu trí tuệ, và các mặt hàng nằm trong danh sách cấm của sàn.",
-    "expected_context": "Trang Product Listing Regulations, mục Prohibited Content"
+    "question": "Ngũ Hành Sơn nằm cách trung tâm Đà Nẵng bao xa và có đặc điểm gì?",
+    "expected_answer": "Ngũ Hành Sơn cách thành phố khoảng 15 phút, gồm năm ngọn núi đá với các ngôi chùa, bậc đá, hang động ẩn và đền thờ cổ.",
+    "expected_context": "da-nang-cam-nang-diem-den.md — mục Explore Marble Mountains"
+  },
+  {
+    "question": "Một tô mì Quảng được giới thiệu trong cẩm nang Đà Nẵng gồm những thành phần chính nào?",
+    "expected_answer": "Mì Quảng gồm mì gạo đặt trên rau sống và giá, ăn cùng bánh tráng giòn, hoa chuối, trứng cút và nước dùng vị đậu phộng với thịt gà, thịt heo hoặc tôm.",
+    "expected_context": "da-nang-foodie-guide.md — mục Mì Quảng"
+  },
+  {
+    "question": "Bún chả cá Đà Nẵng được nấu từ những nguyên liệu gì?",
+    "expected_answer": "Chả cá được làm từ cá thu, cá da trơn, cá thác lác và tiêu đen; nước dùng nấu từ xương cá, bí đỏ, dứa, cà chua và bắp cải.",
+    "expected_context": "da-nang-foodie-guide.md — mục Bún Chả Cá"
+  },
+  {
+    "question": "Bánh xèo Đà Nẵng trong bài được ăn với những nguyên liệu và nước chấm nào?",
+    "expected_answer": "Bánh xèo có thịt heo, tôm, hành, giá và nấm; khi ăn được cuốn với rau thơm, xà lách và chấm nước sốt đậu phộng.",
+    "expected_context": "da-nang-foodie-guide.md — mục Bánh Xèo"
+  },
+  {
+    "question": "Du khách có thể trải nghiệm văn hóa cà phê bền vững ở đâu tại Đà Lạt?",
+    "expected_answer": "Du khách có thể đến K’Ho Coffee để tham quan đầy đủ nông trại và xưởng rang cà phê bền vững.",
+    "expected_context": "da-lat-cam-nang-diem-den.md — mục Sample local coffee culture"
+  },
+  {
+    "question": "Từ ga Đà Lạt có thể đi tàu đến đâu và tham quan địa điểm nào?",
+    "expected_answer": "Du khách có thể đi tàu đến Trại Mát để tham quan chùa Linh Phước nổi bật với kiến trúc khảm mosaic.",
+    "expected_context": "da-lat-cam-nang-diem-den.md — mục Ride the train"
+  },
+  {
+    "question": "Cần chuẩn bị trang phục hoặc vật dụng gì khi đến Đà Lạt theo từng mùa?",
+    "expected_answer": "Nên mang áo ấm nếu đến từ tháng 11 đến tháng 1 và mang ô vì mùa mưa kéo dài từ tháng 4 đến tháng 11; tháng 5 phù hợp nếu muốn thời tiết ấm hơn.",
+    "expected_context": "da-lat-cam-nang-diem-den.md — mục Da Lat Weather"
+  },
+  {
+    "question": "Sân bay Đà Lạt cách thành phố bao xa và có những cách nào để di chuyển trong thành phố?",
+    "expected_answer": "Sân bay nằm cách thành phố khoảng 30 km về phía nam. Trong thành phố có thể đi bộ hoặc taxi; người thích khám phá có thể thuê xe máy.",
+    "expected_context": "da-lat-cam-nang-diem-den.md — mục Da Lat Transport"
+  },
+  {
+    "question": "Lộ trình Hà Giang Loop bốn ngày đi theo những quốc lộ nào?",
+    "expected_answer": "Lộ trình đi theo QL4C về phía đông bắc từ Hà Giang đến Bảo Lâm, sau đó theo QL34 về phía tây nam để trở lại Hà Giang.",
+    "expected_context": "ha-giang-loop-4-ngay.md — phần giới thiệu lộ trình"
+  },
+  {
+    "question": "Trong ngày thứ hai của Hà Giang Loop, đường vòng đến Cột cờ Lũng Cú mất bao lâu và có gì đáng xem?",
+    "expected_answer": "Đường vòng mất khoảng ba giờ và mang lại tầm nhìn 360 độ qua biên giới sang Trung Quốc.",
+    "expected_context": "ha-giang-loop-4-ngay.md — mục Day 2: The Vietnamese Border"
+  },
+  {
+    "question": "Mèo Vạc cách Đồng Văn bao xa và vì sao hành trình có thể mất gần cả buổi sáng?",
+    "expected_answer": "Mèo Vạc cách Đồng Văn 24 km, nhưng chuyến đi có thể mất gần cả buổi sáng vì cung đường qua Mã Pí Lèng có rất nhiều điểm ngắm cảnh toàn cảnh đáng dừng lại.",
+    "expected_context": "ha-giang-loop-4-ngay.md — mục Day 3: Đồng Văn and Mã Pí Lèng Passes"
+  },
+  {
+    "question": "Du khách cần lưu ý gì về tiền mặt và an toàn khi chạy Hà Giang Loop?",
+    "expected_answer": "Nên mang đủ tiền mặt vì ATM rất hiếm ngoài thành phố Hà Giang; cần thận trọng khi vào cua, chạy xe vào ban ngày và dừng lại khi trời tối.",
+    "expected_context": "ha-giang-loop-4-ngay.md — mục Practical Tips"
+  },
+  {
+    "question": "Đường đi bộ trên cao đến điểm ngắm sông Nho Quế dài bao nhiêu và mất khoảng bao lâu?",
+    "expected_answer": "Đường đi bộ dài tổng cộng khoảng 500 mét và mất khoảng hai giờ; du khách nên chuẩn bị giày chắc chắn.",
+    "expected_context": "ha-giang-kinh-nghiem-dia-phuong.md — mục Incredible hikes on the sky path"
+  },
+  {
+    "question": "Du khách có thể tìm hiểu nghề dệt lanh bền vững của người H’Mông ở đâu tại Hà Giang?",
+    "expected_answer": "Có thể đến Hợp tác xã lanh Lùng Tám ở huyện Quản Bạ để xem quy trình xe, kéo, phơi, nhuộm sợi gai dầu bằng thực vật và dệt thủ công thành vải lanh.",
+    "expected_context": "ha-giang-kinh-nghiem-dia-phuong.md — mục Sustainable souvenirs in Lùng Tám"
+  },
+  {
+    "question": "Các quán ăn trưa đường phố ở Việt Nam thường mở vào khung giờ nào?",
+    "expected_answer": "Các quán ăn trưa thường hoạt động từ 11 giờ 30 đến 13 giờ; cơm bình dân là một lựa chọn phổ biến.",
+    "expected_context": "am-thuc-duong-pho-viet-nam.md — mục Eat when the locals do"
+  },
+  {
+    "question": "Quy tắc thanh toán phổ biến khi ăn tại quán vỉa hè Việt Nam là gì?",
+    "expected_answer": "Quy tắc phổ biến là ăn trước, trả tiền sau. Ở quán nhỏ, thực khách thường hỏi tổng tiền và trả trực tiếp cho người nấu khi ra về.",
+    "expected_context": "am-thuc-duong-pho-viet-nam.md — mục Vietnamese street food etiquette"
+  },
+  {
+    "question": "Đi đường bộ vào Kỳ Co có giá bao nhiêu và vé bao gồm những gì?",
+    "expected_answer": "Vé đường bộ vào Kỳ Co có giá 100.000 đồng mỗi người, bao gồm vé vào cửa và xe trung chuyển.",
+    "expected_context": "quy-nhon-lich-trinh-mot-ngay.md — mục Thiên đường biển đảo Kỳ Co"
+  },
+  {
+    "question": "Tháp Bánh Ít có bao nhiêu tòa tháp, nằm ở đâu và giá vé vào cửa là bao nhiêu?",
+    "expected_answer": "Tháp Bánh Ít gồm bốn tòa tháp lớn nhỏ mang kiến trúc Chăm, nằm trên một ngọn đồi có 200 bậc thang; vé vào cửa là 15.000 đồng.",
+    "expected_context": "quy-nhon-lich-trinh-mot-ngay.md — mục Tháp Bánh Ít"
   }
 ]
