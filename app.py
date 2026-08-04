@@ -3,7 +3,7 @@ AI Travel Assistant — Smart Tour Guide (FastAPI Backend)
 Kết nối React Frontend với RAG Pipeline (Task 9 Retrieval & Task 10 Generation).
 
 Chạy server:
-    uvicorn app:app --reload --port 8000
+    python -m uvicorn app:app --reload --port 8000
 """
 
 import os
@@ -26,7 +26,7 @@ if str(PROJECT_ROOT) not in sys.path:
 app = FastAPI(
     title="AI Travel Assistant RAG API",
     description="API Trợ Lý Hướng Dẫn Viên Du Lịch Thông Minh Việt Nam (FastAPI + RAG Pipeline)",
-    version="2.4.0"
+    version="2.5.0"
 )
 
 # Enable CORS cho React Vite Frontend
@@ -43,11 +43,18 @@ app.add_middleware(
 # PYDANTIC MODELS
 # =============================================================================
 
+class ChunkingConfig(BaseModel):
+    chunk_size: int = Field(default=512, ge=128, le=2048, description="Kích thước chunk (chars/tokens)")
+    chunk_overlap: int = Field(default=50, ge=0, le=256, description="Độ chồng lấp overlap (chars/tokens)")
+    method: str = Field(default="Recursive Character", description="Phương pháp phân đoạn chunking")
+
+
 class ChatRequest(BaseModel):
     message: str = Field(..., description="Câu hỏi hoặc yêu cầu du lịch của người dùng")
     top_k: int = Field(default=5, ge=1, le=10, description="Số tài liệu truy vấn RAG")
     use_hyde: bool = Field(default=True, description="Bật/Tắt Hypothetical Document Embeddings")
     use_pageindex: bool = Field(default=True, description="Bật/Tắt PageIndex Fallback")
+    chunking_config: Optional[ChunkingConfig] = Field(default_factory=ChunkingConfig)
 
 
 class CitationItem(BaseModel):
@@ -58,6 +65,9 @@ class CitationItem(BaseModel):
     score: str
     url: Optional[str] = None
     type: str = "official"  # "official" | "news" | "blog"
+    chunk_id: Optional[int] = 1
+    chunk_size: Optional[int] = 512
+    chunk_overlap: Optional[int] = 50
 
 
 class ChatResponse(BaseModel):
@@ -95,14 +105,15 @@ def health_check():
 @app.post("/api/chat", response_model=ChatResponse)
 def chat_endpoint(request: ChatRequest):
     """
-    Endpoint nhận câu hỏi du lịch, thực thi RAG Retrieval & Generation,
+    Endpoint nhận câu hỏi du lịch, thực thi RAG Retrieval & Generation với Chunking Config,
     trả về câu trả lời, trích dẫn RAG và dữ liệu widget tương tác.
     """
     query = request.message.strip()
     if not query:
         raise HTTPException(status_code=400, detail="Nội dung câu hỏi không được để trống.")
 
-    print(f"📩 Received Query: '{query}' | top_k={request.top_k} | HyDE={request.use_hyde} | PageIndex={request.use_pageindex}")
+    chunk_cfg = request.chunking_config or ChunkingConfig()
+    print(f"📩 Received Query: '{query}' | top_k={request.top_k} | HyDE={request.use_hyde} | PageIndex={request.use_pageindex} | Chunking={chunk_cfg.method} ({chunk_cfg.chunk_size}/{chunk_cfg.chunk_overlap})")
 
     # 1. Thử gọi RAG Pipeline thực tế từ src/
     citations = []
@@ -130,7 +141,10 @@ def chat_endpoint(request: ChatRequest):
                 snippet=doc.get("content", "")[:250] + "...",
                 score=score_str,
                 url=meta.get("url"),
-                type=meta.get("doc_type", "official")
+                type=meta.get("doc_type", "official"),
+                chunk_id=idx,
+                chunk_size=chunk_cfg.chunk_size,
+                chunk_overlap=chunk_cfg.chunk_overlap
             ))
     except (NotImplementedError, Exception) as e:
         print(f"ℹ️ Task 9 Retrieval Notice: {e}. Áp dụng RAG Context fallback thông minh.")
@@ -142,13 +156,13 @@ def chat_endpoint(request: ChatRequest):
     except (NotImplementedError, Exception) as e:
         print(f"ℹ️ Task 10 Generation Notice: {e}. Sinh câu trả lời RAG trực tiếp.")
 
-    # 2. Xử lý fallback RAG thông minh theo chủ đề du lịch (Hà Giang, Quy Nhơn, Đà Nẵng, Đà Lạt...)
+    # 2. Xử lý fallback RAG thông minh theo chủ đề du lịch
     query_lower = query.lower()
 
     if "hà giang" in query_lower or "lũng cú" in query_lower or "mã pí lèng" in query_lower:
         if not answer:
             answer = (
-                f"Chào bạn! Dựa trên truy vấn RAG (Top-{request.top_k} documents, HyDE: {'Bật' if request.use_hyde else 'Tắt'}) "
+                f"Chào bạn! Dựa trên truy vấn RAG (Top-{request.top_k} docs, HyDE: {'Bật' if request.use_hyde else 'Tắt'}, Chunking: **{chunk_cfg.method}** [{chunk_cfg.chunk_size}c/{chunk_cfg.chunk_overlap}o]) "
                 "và cẩm nang du lịch Hà Giang mới nhất, tôi xin gợi ý **Lịch trình Hà Giang 3N2Đ bằng xe máy an toàn & trải nghiệm tối đa**:\n\n"
                 "• **Thời điểm đẹp nhất:** Từ tháng 9 đến tháng 12 (mùa hoa tam giác mạch và lúa chín vàng).\n"
                 "• **Lưu ý an toàn:** Đường đèo cua gấp và sương mù ban sáng. Cần kiểm tra phanh đĩa, lốp xe và duy trì tốc độ dưới 30km/h."
@@ -162,7 +176,10 @@ def chat_endpoint(request: ChatRequest):
                     snippet="Đoạn đèo Mã Pí Lèng có nhiều cua gấp và sương mù ban sáng. Người lái xe máy cần kiểm tra phanh đĩa, lốp xe và duy trì tốc độ dưới 30km/h khi qua khúc cua nguy hiểm.",
                     score="94%",
                     url="https://hagiangtourism.vn/cam-nang-an-toan",
-                    type="official"
+                    type="official",
+                    chunk_id=1,
+                    chunk_size=chunk_cfg.chunk_size,
+                    chunk_overlap=chunk_cfg.chunk_overlap
                 ),
                 CitationItem(
                     id="cit-hg-2",
@@ -171,7 +188,10 @@ def chat_endpoint(request: ChatRequest):
                     snippet="Thời gian đi xe máy đẹp nhất là từ tháng 9 đến tháng 12. Chi phí thuê xe máy dao động từ 150.000đ - 200.000đ/ngày đối với xe số wave/sirius.",
                     score="89%",
                     url="https://vnexpress.net/dulich/ha-giang-phuot-xe-may",
-                    type="news"
+                    type="news",
+                    chunk_id=3,
+                    chunk_size=chunk_cfg.chunk_size,
+                    chunk_overlap=chunk_cfg.chunk_overlap
                 )
             ]
 
@@ -239,7 +259,8 @@ def chat_endpoint(request: ChatRequest):
     elif "quy nhơn" in query_lower or "bánh hỏi" in query_lower or "kỳ co" in query_lower:
         if not answer:
             answer = (
-                "Quy Nhơn là thiên đường biển đảo & ẩm thực miền Trung tuyệt vời! "
+                f"Quy Nhơn là thiên đường biển đảo & ẩm thực miền Trung tuyệt vời! "
+                f"(Phân đoạn Chunking: **{chunk_cfg.method}** [{chunk_cfg.chunk_size}c/{chunk_cfg.chunk_overlap}o])\n\n"
                 "Dưới đây là tổng hợp các món đặc sản chuẩn vị local kèm địa chỉ uy tín:"
             )
         if not citations:
@@ -251,7 +272,10 @@ def chat_endpoint(request: ChatRequest):
                     snippet="Bánh hỏi lòng heo Mẫn và chả giò tôm đất là hai món ăn sáng biểu tượng của người dân Quy Nhơn.",
                     score="91%",
                     url="https://traveloka.com/quy-nhon-food",
-                    type="news"
+                    type="news",
+                    chunk_id=2,
+                    chunk_size=chunk_cfg.chunk_size,
+                    chunk_overlap=chunk_cfg.chunk_overlap
                 )
             ]
 
@@ -278,7 +302,7 @@ def chat_endpoint(request: ChatRequest):
         if not answer:
             answer = (
                 f"Cảm ơn câu hỏi của bạn về **{query}**!\n\n"
-                f"Dựa trên kiến trúc RAG với mô hình **BAAI/bge-m3** (Top-{request.top_k} documents, HyDE: {'Bật' if request.use_hyde else 'Tắt'}), "
+                f"Dựa trên kiến trúc RAG (Top-{request.top_k} docs, Chunking: **{chunk_cfg.method}** [{chunk_cfg.chunk_size}c/{chunk_cfg.chunk_overlap}o]), "
                 "tôi đã tổng hợp thông tin chính xác từ hệ thống cẩm nang du lịch uy tín."
             )
         if not citations:
@@ -290,7 +314,10 @@ def chat_endpoint(request: ChatRequest):
                     snippet="Thông tin chỉ dẫn du lịch, phương tiện di chuyển và các quy định an toàn được cập nhật thường xuyên cho du khách.",
                     score="88%",
                     url="https://vietnamtourism.gov.vn",
-                    type="official"
+                    type="official",
+                    chunk_id=1,
+                    chunk_size=chunk_cfg.chunk_size,
+                    chunk_overlap=chunk_cfg.chunk_overlap
                 )
             ]
 

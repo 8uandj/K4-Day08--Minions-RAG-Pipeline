@@ -14,11 +14,14 @@ export default function App() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [dbStatus, setDbStatus] = useState('Checking...');
 
-  // RAG Control Parameters State
+  // RAG Control & Chunking Parameters State
   const [ragParams, setRagParams] = useState({
     topK: 5,
     enableHyDE: true,
-    enablePageIndex: true
+    enablePageIndex: true,
+    chunkSize: 512,
+    chunkOverlap: 50,
+    chunkingMethod: 'Recursive Character'
   });
 
   // Check Backend & Vector DB health on mount
@@ -56,7 +59,7 @@ export default function App() {
     handleSendMessage(topic.query);
   };
 
-  // Real API RAG query handling
+  // Real API RAG query handling with Chunking Params
   const handleSendMessage = async (text) => {
     if (!text || !text.trim()) return;
 
@@ -76,7 +79,10 @@ export default function App() {
         message: text,
         topK: ragParams.topK,
         useHyDE: ragParams.enableHyDE,
-        usePageIndex: ragParams.enablePageIndex
+        usePageIndex: ragParams.enablePageIndex,
+        chunkSize: ragParams.chunkSize,
+        chunkOverlap: ragParams.chunkOverlap,
+        chunkingMethod: ragParams.chunkingMethod
       });
 
       const assistantMsg = {

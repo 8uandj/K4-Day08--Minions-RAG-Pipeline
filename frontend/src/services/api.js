@@ -24,7 +24,15 @@ export async function fetchHealthStatus() {
 /**
  * Send chat message and RAG parameters to FastAPI backend
  */
-export async function sendChatMessage({ message, topK = 5, useHyDE = true, usePageIndex = true }) {
+export async function sendChatMessage({
+  message,
+  topK = 5,
+  useHyDE = true,
+  usePageIndex = true,
+  chunkSize = 512,
+  chunkOverlap = 50,
+  chunkingMethod = 'Recursive Character'
+}) {
   try {
     const response = await fetch(`${API_BASE_URL}/chat`, {
       method: 'POST',
@@ -36,6 +44,11 @@ export async function sendChatMessage({ message, topK = 5, useHyDE = true, usePa
         top_k: topK,
         use_hyde: useHyDE,
         use_pageindex: usePageIndex,
+        chunking_config: {
+          chunk_size: chunkSize,
+          chunk_overlap: chunkOverlap,
+          method: chunkingMethod
+        }
       }),
     });
 
@@ -59,7 +72,7 @@ export async function sendChatMessage({ message, topK = 5, useHyDE = true, usePa
     return {
       success: false,
       isOffline: true,
-      answer: `⚠️ **Lỗi kết nối máy chủ RAG API (${error.message}).**\n\nHệ thống tạm thời sử dụng chế độ lưu trữ ngoại tuyến. Vui lòng kiểm tra server \`uvicorn app:app --port 8000\`.`,
+      answer: `⚠️ **Lỗi kết nối máy chủ RAG API (${error.message}).**\n\nHệ thống tạm thời sử dụng chế độ lưu trữ ngoại tuyến. Vui lòng kiểm tra server \`python -m uvicorn app:app --port 8000\`.`,
       citations: [
         {
           id: 'cit-offline',
@@ -68,7 +81,10 @@ export async function sendChatMessage({ message, topK = 5, useHyDE = true, usePa
           snippet: 'Kết nối API không khả dụng, dữ liệu được tải từ bộ nhớ đệm ứng dụng.',
           score: '90%',
           url: null,
-          type: 'blog'
+          type: 'blog',
+          chunk_id: 1,
+          chunk_size: chunkSize,
+          chunk_overlap: chunkOverlap
         }
       ],
       itinerary: null,

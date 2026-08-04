@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { BookOpen, ExternalLink, ChevronDown, CheckCircle2, ShieldCheck, Newspaper, Compass } from 'lucide-react';
+import { BookOpen, ExternalLink, ChevronDown, CheckCircle2, ShieldCheck, Newspaper, Compass, Layers, Scissors } from 'lucide-react';
 
 export default function CitationCard({ citations }) {
   const [isOpen, setIsOpen] = useState(true);
@@ -30,7 +30,7 @@ export default function CitationCard({ citations }) {
   };
 
   return (
-    <div className="mt-4 border border-teal-200 bg-slate-50/90 rounded-2xl overflow-hidden shadow-sm">
+    <div className="mt-4 border border-teal-200 bg-slate-50/90 rounded-2xl overflow-hidden shadow-xs">
       <button
         onClick={() => setIsOpen(!isOpen)}
         className="w-full px-4 py-3 flex items-center justify-between bg-teal-50/80 hover:bg-teal-100/60 transition-colors text-left border-b border-teal-100"
@@ -102,10 +102,27 @@ export default function CitationCard({ citations }) {
                   </div>
                 </div>
 
-                <h4 className="text-sm font-bold text-slate-800 mb-1">{cit.title}</h4>
-                <p className="text-xs text-slate-600 leading-relaxed bg-slate-50 p-2.5 rounded-lg border border-slate-200/80 italic">
+                <h4 className="text-sm font-bold text-slate-800 mb-1.5">{cit.title}</h4>
+                <p className="text-xs text-slate-600 leading-relaxed bg-slate-50 p-2.5 rounded-lg border border-slate-200/80 italic mb-2">
                   "{cit.snippet}"
                 </p>
+
+                {/* Chunk Context & Indexing Metadata Badges */}
+                <div className="flex flex-wrap items-center gap-1.5 pt-1 border-t border-slate-100 text-[11px] font-mono">
+                  <span className="px-2 py-0.5 rounded bg-slate-100 text-slate-700 font-semibold border border-slate-200 flex items-center gap-1">
+                    <Layers className="w-3 h-3 text-teal-600" />
+                    Chunk #{cit.chunk_id || (idx + 1)}
+                  </span>
+
+                  <span className="px-2 py-0.5 rounded bg-teal-50 text-teal-800 font-semibold border border-teal-200 flex items-center gap-1">
+                    <Scissors className="w-3 h-3 text-teal-600" />
+                    Size: {cit.chunk_size || 512} chars
+                  </span>
+
+                  <span className="px-2 py-0.5 rounded bg-amber-50 text-amber-800 font-semibold border border-amber-200">
+                    Overlap: {cit.chunk_overlap || 50} chars
+                  </span>
+                </div>
               </div>
             ))}
           </motion.div>
