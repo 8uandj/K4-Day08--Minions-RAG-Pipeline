@@ -8,24 +8,30 @@ export default function CitationCard({ citations }) {
 
   if (!citations || citations.length === 0) return null;
 
-  const isLegalDoc = (cit) => {
-    const cat = (cit.category || cit.doc_type || '').toLowerCase();
-    const src = (cit.source_file || cit.source || cit.title || '').toLowerCase();
-    return cat === 'legal' || src.includes('visa') || src.includes('legal') || src.includes('y-te') || src.includes('health');
-  };
-
   const getBadgeStyle = (cit) => {
-    if (isLegalDoc(cit)) {
+    const cat = (cit.category || '').toLowerCase();
+    const src = (cit.source_file || cit.source || cit.title || '').toLowerCase();
+
+    if (cat === 'legal' || src.includes('visa') || src.includes('luat-du-lich') || src.includes('e-visa')) {
       return {
         badgeClass: 'bg-sky-100 text-sky-900 border-sky-300 font-bold',
         icon: <Scale className="w-3.5 h-3.5 text-sky-700" />,
         label: 'Pháp Lý & Visa (Legal)'
       };
     }
+
+    if (cat === 'food' || src.includes('food') || src.includes('am-thuc') || src.includes('ẩm thực')) {
+      return {
+        badgeClass: 'bg-amber-100 text-amber-900 border-amber-300 font-bold',
+        icon: <Compass className="w-3.5 h-3.5 text-amber-700" />,
+        label: 'Ẩm Thực & Đặc Sản (Food)'
+      };
+    }
+
     return {
       badgeClass: 'bg-emerald-100 text-emerald-900 border-emerald-300 font-bold',
       icon: <Compass className="w-3.5 h-3.5 text-emerald-700" />,
-      label: 'Cẩm Nang Du Lịch (News)'
+      label: 'Cẩm Nang Du Lịch (Guide)'
     };
   };
 

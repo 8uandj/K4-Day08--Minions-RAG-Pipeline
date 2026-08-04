@@ -300,18 +300,33 @@ def chat_endpoint(request: ChatRequest):
 
     for idx, item in enumerate(processed_chunks, 1):
         meta = item.get("metadata", {})
-        score_val = float(item.get("score", 0.85))
+        score_val = float(item.get("score", 0.0))
 
-        # Tính Cosine score và RRF score
-        cosine_val = float(item.get("cosine_score") or item.get("dense_score") or (score_val if score_val > 0.1 else 0.85))
+        # Lấy Cosine score thực tế từ semantic search (src/task5_semantic_search.py)
+        raw_cosine = item.get("cosine_score")
+        if raw_cosine is not None:
+            cosine_val = float(raw_cosine)
+        elif score_val > 0.1:
+            cosine_val = score_val
+        else:
+            cosine_val = float(meta.get("score", 0.68))
+
         rrf_val = float(item.get("rrf_score") or (score_val if score_val <= 0.1 else round(1.0 / (60 + idx), 4)))
-
         score_disp = f"{int(cosine_val * 100)}%" if cosine_val <= 1.0 else f"{cosine_val:.4f}"
 
         source_path = str(meta.get("source_path") or meta.get("source") or "document.md")
         source_filename = Path(source_path).name
-        cat = str(meta.get("doc_type") or ("legal" if "legal" in source_filename.lower() or "visa" in source_filename.lower() else "news"))
+        source_lower = source_filename.lower()
         title_str = str(meta.get("title") or meta.get("section") or source_filename)
+        title_lower = title_str.lower()
+
+        if "visa" in source_lower or "luat-du-lich" in source_lower or "visa" in title_lower:
+            cat = "legal"
+        elif "food" in source_lower or "am-thuc" in source_lower or "food" in title_lower or "ẩm thực" in title_lower:
+            cat = "food"
+        else:
+            cat = "news"
+
         content_str = str(item.get("content", ""))[:320] + "..."
         orig_rank = item.get("original_rank", idx)
 
