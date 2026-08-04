@@ -64,7 +64,7 @@ export default function ParameterPanel({ ragParams, setRagParams, dbStatus, conf
       <div className="flex items-center justify-between">
         <span className="text-xs font-bold text-teal-800 uppercase tracking-wider flex items-center gap-1.5">
           <Sliders className="w-3.5 h-3.5 text-teal-600" />
-          Task 9 RAG Pipeline Controls
+          RAG Pipeline Controls
         </span>
         <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold border flex items-center gap-1 ${
           isConnected
@@ -87,7 +87,7 @@ export default function ParameterPanel({ ragParams, setRagParams, dbStatus, conf
           }`}
         >
           <Layers className="w-3.5 h-3.5" />
-          Task 9 Retrieval
+          RAG Pipeline
         </button>
 
         <button
@@ -103,7 +103,7 @@ export default function ParameterPanel({ ragParams, setRagParams, dbStatus, conf
         </button>
       </div>
 
-      {/* TAB 1: TASK 9 RETRIEVAL CONTROLS */}
+      {/* TAB 1: RAG RETRIEVAL CONTROLS */}
       {activeTab === 'retrieval' && (
         <div className="space-y-3 pt-1">
           {/* Document Category Selector */}

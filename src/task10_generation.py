@@ -26,11 +26,17 @@ Tại sao reorder chunks:
 
 import os
 import re
+from pathlib import Path
+from typing import Optional, List, Dict, Any
 from dotenv import load_dotenv
 
 load_dotenv()
 
+# Thiết lập mặc định EMBEDDING_PROVIDER=sentence_transformers
+os.environ.setdefault("EMBEDDING_PROVIDER", "sentence_transformers")
+
 from .task9_retrieval_pipeline import retrieve
+
 
 
 # =============================================================================
@@ -49,28 +55,19 @@ TOP_P = 0.9
 # Chọn 0.3 vì: RAG cần factual, ít sáng tạo
 TEMPERATURE = 0.3
 
-# LLM model:
-# - OPENROUTER_MODEL dùng dạng provider/model, ví dụ "openai/gpt-4o-mini".
-# - OPENAI_CHAT_MODEL dùng model ID native của OpenAI, ví dụ "gpt-4o-mini".
-OPENROUTER_MODEL = os.getenv("OPENROUTER_MODEL", "openai/gpt-4o-mini")
-OPENAI_CHAT_MODEL = os.getenv("OPENAI_CHAT_MODEL", "gpt-4o-mini")
-
-
-# =============================================================================
-# SYSTEM PROMPT
-# =============================================================================
+# TODO: Chọn LLM model (OpenRouter model ID)
+LLM_MODEL = os.getenv("LLM_MODEL") or ("openai/gpt-4o-mini" if os.getenv("OPENROUTER_API_KEY") else "gpt-4o-mini")
 
 SYSTEM_PROMPT = """Bạn là trợ lý hướng dẫn viên du lịch thông minh cho Việt Nam.
 Bạn trả lời về lịch trình, điểm đến, di chuyển, ẩm thực, văn hóa ứng xử, visa,
 sức khỏe và an toàn dựa trên tài liệu du lịch/chính thống được cung cấp.
 
 Quy tắc bắt buộc:
-1. Chỉ sử dụng thông tin từ context được cung cấp — KHÔNG bịa đặt
-2. Mỗi khẳng định quan trọng phải có trích dẫn ngay sau, ví dụ: [Visa Requirements]
-3. Nếu context không đủ để trả lời chính xác toàn bộ câu hỏi, hãy nói rõ phần chưa thể xác minh,
-   rồi tóm tắt các thông tin liên quan có trong context kèm citation
-4. Trả lời bằng tiếng Việt, có cấu trúc rõ ràng theo đoạn văn
-5. Không suy luận hay mở rộng ngoài những gì được nêu trong context"""
+1. Tổng hợp thông tin từ context được cung cấp để đưa ra câu trả lời hữu ích, chi tiết, mạch lạc.
+2. Mỗi thông tin, địa điểm, món ăn hoặc thủ tục chính phải kèm trích dẫn nguồn ngay sau (ví dụ: [Source: tên_file.md] hoặc [Document X]).
+3. Nếu người dùng hỏi lịch trình (ví dụ 3N2Đ, 2N1Đ), hãy linh hoạt tổng hợp các điểm tham quan, ẩm thực có trong context thành lịch trình gợi ý theo ngày hợp lý.
+4. Trả lời bằng tiếng Việt có cấu trúc rõ ràng (dùng Markdown, bullet points, danh sách các ngày).
+5. Chỉ khi context hoàn toàn rỗng hoặc không có bất kỳ thông tin nào liên quan mới trả lời "Tôi không thể xác minh thông tin này từ nguồn hiện có"."""
 
 
 # =============================================================================
@@ -103,6 +100,10 @@ def reorder_for_llm(chunks: list[dict]) -> list[dict]:
     return front + back[::-1]
 
 
+reorder_documents = reorder_for_llm
+reorder_chunks = reorder_for_llm
+
+
 # =============================================================================
 # CONTEXT FORMATTING
 # =============================================================================
@@ -122,7 +123,7 @@ def format_context(chunks: list[dict]) -> str:
     context_parts = []
     for i, chunk in enumerate(chunks, 1):
         metadata = chunk.get("metadata", {})
-        source = metadata.get("title") or metadata.get("source", f"Source {i}")
+        source = metadata.get("title") or metadata.get("source") or f"Source {i}"
         doc_type = metadata.get("doc_type") or metadata.get("type", "unknown")
         context_parts.append(
             f"[Document {i} | Source: {source} | Type: {doc_type}]\n"
@@ -132,15 +133,16 @@ def format_context(chunks: list[dict]) -> str:
 
 
 def _citation_label(chunk: dict, index: int) -> str:
-    """Build a compact citation label from chunk metadata."""
-
     metadata = chunk.get("metadata", {})
-    return str(
-        metadata.get("title")
-        or metadata.get("section")
-        or metadata.get("source")
-        or f"Document {index}"
-    )
+    source_path = metadata.get("source_path") or metadata.get("source") or ""
+    if source_path:
+        filename = Path(str(source_path)).name
+        if filename:
+            return filename
+    title = metadata.get("title") or metadata.get("section")
+    if title:
+        return str(title)
+    return f"Document {index}"
 
 
 def _clean_excerpt(content: str, max_chars: int = 420) -> str:
@@ -176,12 +178,12 @@ def _extractive_answer(query: str, chunks: list[dict]) -> str:
 # GENERATION
 # =============================================================================
 
-def generate_with_citation(query: str, top_k: int = TOP_K) -> dict:
+def generate_with_citation(query: str, top_k: int = TOP_K, chunks: Optional[list[dict]] = None) -> dict:
     """
     End-to-end RAG generation có citation.
 
     Pipeline:
-        1. Retrieve relevant chunks
+        1. Retrieve relevant chunks (nếu chưa truyền vào)
         2. Reorder để tránh lost in the middle
         3. Format context với source labels
         4. Build prompt (system + context + query)
@@ -190,6 +192,8 @@ def generate_with_citation(query: str, top_k: int = TOP_K) -> dict:
 
     Args:
         query: Câu hỏi của user
+        top_k: Số tài liệu truy xuất
+        chunks: Optional list of retrieved chunks
 
     Returns:
         {
@@ -221,13 +225,11 @@ def generate_with_citation(query: str, top_k: int = TOP_K) -> dict:
                 client = OpenAI(
                     api_key=api_key, base_url="https://openrouter.ai/api/v1"
                 )
-                model = OPENROUTER_MODEL
             else:
                 client = OpenAI(api_key=api_key)
-                model = OPENAI_CHAT_MODEL
 
             response = client.chat.completions.create(
-                model=model,
+                model=LLM_MODEL,
                 messages=[
                     {"role": "system", "content": SYSTEM_PROMPT},
                     {"role": "user", "content": user_message},

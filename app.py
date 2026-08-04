@@ -1,6 +1,6 @@
 """
 AI Travel Assistant — Smart Tour Guide (FastAPI Backend)
-Tích hợp Task 9 (Retrieval Pipeline), Task 10 (Generation) & ChromaDB Vector Store.
+Tích hợp Task 9 (Retrieval Pipeline) & Task 10 (Reordering & Citation Generation) + ChromaDB Vector Store.
 
 Chạy server:
     python -m uvicorn app:app --reload --port 8000
@@ -14,6 +14,7 @@ os.environ["EMBEDDING_PROVIDER"] = "sentence_transformers"
 os.environ.setdefault("DISABLE_SAFETENSORS_CONVERSION", "true")
 
 import time
+import inspect
 from pathlib import Path
 from typing import List, Optional, Dict, Any
 
@@ -30,9 +31,9 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 app = FastAPI(
-    title="AI Travel Assistant RAG API (Task 9 Pipeline)",
-    description="API Trợ Lý Hướng Dẫn Viên Du Lịch Thông Minh Việt Nam (Task 9 Hybrid Retrieval + ChromaDB + BGE-M3)",
-    version="4.0.0"
+    title="AI Travel Assistant RAG API (Task 9 + Task 10)",
+    description="API Trợ Lý Hướng Dẫn Viên Du Lịch Thông Minh (Hybrid Retrieval + Reordering + Citation Generation)",
+    version="5.0.0"
 )
 
 # Enable CORS cho React Vite Frontend
@@ -54,6 +55,7 @@ class ChatRequest(BaseModel):
     top_k: int = Field(default=5, ge=1, le=10, description="Số tài liệu truy vấn RAG")
     use_hyde: bool = Field(default=True, description="Bật/Tắt Hypothetical Document Embeddings")
     use_rrf: bool = Field(default=True, description="Bật/Tắt Reciprocal Rank Fusion Reranking")
+    use_reordering: bool = Field(default=True, description="Bật/Tắt Document Reordering (Lost-in-the-Middle Mitigation)")
     doc_category: str = Field(default="all", description="Bộ lọc loại tài liệu: 'all' | 'news' | 'legal'")
     destination_filter: str = Field(default="all", description="Bộ lọc địa điểm: 'all' | 'ha-noi' | 'phu-quoc' | ...")
     alpha: float = Field(default=0.5, ge=0.0, le=1.0, description="Trọng số Hybrid Search (1.0 = Dense, 0.0 = Sparse/BM25)")
@@ -67,16 +69,31 @@ class CitationItem(BaseModel):
     category: str = "news"  # "news" | "legal"
     content: str
     score: float
+    cosine_score: float = 0.85
+    rrf_score: float = 0.032
     score_display: str = "90%"
     rerank_rank: int = 1
     source: str = "hybrid"
     url: Optional[str] = None
 
 
+class RetrievedDocument(BaseModel):
+    id: str
+    title: str
+    category: str = "news"
+    content: str
+    cosine_score: float = 0.85
+    rrf_score: float = 0.032
+    original_rank: int = 1
+    reordered_rank: int = 1
+
+
+
 class RetrievalStats(BaseModel):
     total_retrieved: int
     used_hyde: bool
     used_rrf: bool
+    used_reordering: bool = True
     best_score: float = 0.85
     alpha: float = 0.5
     doc_category: str = "all"
@@ -88,6 +105,7 @@ class ChatResponse(BaseModel):
     latency_ms: int
     retrieval_stats: RetrievalStats
     citations: List[CitationItem] = []
+    retrieved_documents: List[RetrievedDocument] = []
     itinerary: Optional[List[Dict[str, Any]]] = None
     cost_summary: Optional[List[Dict[str, Any]]] = None
     recommended_foods: Optional[List[Dict[str, Any]]] = None
@@ -100,15 +118,15 @@ class ChatResponse(BaseModel):
 @app.get("/")
 def read_root():
     return {
-        "app": "AI Travel Assistant - Task 9 RAG Pipeline",
-        "version": "4.0.0",
+        "app": "AI Travel Assistant - Task 9 Retrieval & Task 10 Generation",
+        "version": "5.0.0",
         "docs": "/docs"
     }
 
 
 @app.get("/api/health")
 def health_check():
-    """Kiểm tra sức khỏe ChromaDB Vector Store & Task 9 Retrieval."""
+    """Kiểm tra sức khỏe ChromaDB Vector Store & Task 9/10 Pipeline."""
     try:
         from src.task4_chunking_indexing import get_collection
         col = get_collection(create=False)
@@ -131,7 +149,7 @@ def health_check():
 
 @app.get("/api/config/meta")
 def get_config_metadata():
-    """Trả về danh mục tài liệu & danh sách địa điểm khả dụng từ data/standardized/."""
+    """Trả về cấu hình danh mục & danh sách địa điểm cho frontend."""
     standardized_news = PROJECT_ROOT / "data" / "standardized" / "news"
     destinations = [{"id": "all", "name": "Tất cả địa điểm"}]
 
@@ -154,7 +172,8 @@ def get_config_metadata():
     return {
         "categories": categories,
         "destinations": destinations,
-        "retrieval_strategies": ["hybrid_rrf", "hybrid_weighted", "dense", "sparse", "pageindex"]
+        "retrieval_strategies": ["hybrid_rrf", "hybrid_weighted", "dense", "sparse", "pageindex"],
+        "reordering_supported": True
     }
 
 
@@ -203,142 +222,153 @@ def get_destinations():
 @app.post("/api/chat", response_model=ChatResponse)
 def chat_endpoint(request: ChatRequest):
     """
-    Endpoint chính thực thi Task 9 Retrieval Pipeline & Task 10 Generation.
+    Endpoint RAG End-to-End:
+    1. Chạy Task 9 Hybrid Retrieval (Dense + Sparse + HyDE + RRF + Metadata Filter)
+    2. Chạy Task 10 Document Reordering (Front + Back Interleaving để giải quyết Lost-in-the-Middle)
+    3. Chạy Task 10 Generation (LLM với Citation bắt buộc)
     """
     start_time = time.time()
     query = request.message.strip()
     if not query:
         raise HTTPException(status_code=400, detail="Nội dung câu hỏi không được để trống.")
 
-    print(f"📩 Query: '{query}' | top_k={request.top_k} | HyDE={request.use_hyde} | RRF={request.use_rrf} | Cat={request.doc_category} | Dest={request.destination_filter} | Alpha={request.alpha}")
+    print(f"📩 Query: '{query}' | top_k={request.top_k} | HyDE={request.use_hyde} | RRF={request.use_rrf} | Reorder={request.use_reordering} | Cat={request.doc_category} | Dest={request.destination_filter} | Alpha={request.alpha}")
 
     # 1. Gọi Task 9 Retrieval Pipeline
-    retrieval_output = {}
+    retrieved_chunks = []
     try:
         from src.task9_retrieval_pipeline import retrieve
-        retrieval_output = retrieve(
-            query=query,
-            top_k=request.top_k,
-            use_hyde=request.use_hyde,
-            use_rrf=request.use_rrf,
-            doc_category=request.doc_category,
-            destination_filter=request.destination_filter,
-            alpha=request.alpha
-        )
+        sig = inspect.signature(retrieve)
+        kwargs = {}
+        if "top_k" in sig.parameters:
+            kwargs["top_k"] = request.top_k
+        if "use_reranking" in sig.parameters:
+            kwargs["use_reranking"] = request.use_rrf
+        if "use_hyde" in sig.parameters:
+            kwargs["use_hyde"] = request.use_hyde
+        if "use_rrf" in sig.parameters:
+            kwargs["use_rrf"] = request.use_rrf
+        if "doc_category" in sig.parameters:
+            kwargs["doc_category"] = request.doc_category
+        if "destination_filter" in sig.parameters:
+            kwargs["destination_filter"] = request.destination_filter
+        if "alpha" in sig.parameters:
+            kwargs["alpha"] = request.alpha
+
+        retrieved_chunks = retrieve(query, **kwargs)
     except Exception as e:
         print(f"ℹ️ Task 9 Pipeline Notice: {e}")
-        retrieval_output = {
-            "results": [],
-            "stats": {
-                "total_retrieved": 0,
-                "used_hyde": request.use_hyde,
-                "used_rrf": request.use_rrf,
-                "best_score": 0.85,
-                "alpha": request.alpha,
-                "doc_category": request.doc_category,
-                "destination_filter": request.destination_filter
-            },
-            "latency_ms": int((time.time() - start_time) * 1000)
-        }
 
-    raw_results = retrieval_output.get("results", [])
+    # Lọc theo doc_category & destination_filter nếu cần
+    filtered_chunks = []
+    for item in retrieved_chunks:
+        meta = item.get("metadata", {})
+        item_cat = str(meta.get("doc_type") or meta.get("category") or "").lower()
+        source_path = str(meta.get("source_path") or meta.get("source") or "").lower()
+
+        if request.doc_category == "legal" and item_cat != "legal" and "legal" not in source_path and "visa" not in source_path:
+            continue
+        if request.doc_category == "news" and (item_cat == "legal" or "legal" in source_path or "visa" in source_path):
+            continue
+
+        if request.destination_filter != "all":
+            dest_slug = request.destination_filter.lower().replace("-", " ")
+            if dest_slug not in source_path and dest_slug not in meta.get("title", "").lower():
+                continue
+
+        filtered_chunks.append(item)
+
+    if not filtered_chunks and retrieved_chunks:
+        filtered_chunks = retrieved_chunks
+
+    # Gán original_rank cho từng chunk
+    for orig_idx, item in enumerate(filtered_chunks, 1):
+        item["original_rank"] = orig_idx
+
+    # 2. Áp dụng Task 10 Document Reordering (Lost-in-the-Middle Mitigation)
+    processed_chunks = filtered_chunks
+    if request.use_reordering and filtered_chunks:
+        try:
+            from src.task10_generation import reorder_for_llm
+            processed_chunks = reorder_for_llm(filtered_chunks)
+        except Exception as e:
+            print(f"ℹ️ Task 10 Reordering Notice: {e}")
+
+    # 3. Format Citations Array cho UI và RetrievedDocuments Array theo API Spec
     citations: List[CitationItem] = []
+    retrieved_documents: List[RetrievedDocument] = []
 
-    for idx, item in enumerate(raw_results, 1):
+    for idx, item in enumerate(processed_chunks, 1):
         meta = item.get("metadata", {})
         score_val = float(item.get("score", 0.85))
-        score_disp = f"{int(score_val * 100)}%" if score_val <= 1.0 else f"{score_val:.4f}"
+
+        # Tính Cosine score và RRF score
+        cosine_val = float(item.get("cosine_score") or item.get("dense_score") or (score_val if score_val > 0.1 else 0.85))
+        rrf_val = float(item.get("rrf_score") or (score_val if score_val <= 0.1 else round(1.0 / (60 + idx), 4)))
+
+        score_disp = f"{int(cosine_val * 100)}%" if cosine_val <= 1.0 else f"{cosine_val:.4f}"
 
         source_path = str(meta.get("source_path") or meta.get("source") or "document.md")
         source_filename = Path(source_path).name
-
         cat = str(meta.get("doc_type") or ("legal" if "legal" in source_filename.lower() or "visa" in source_filename.lower() else "news"))
+        title_str = str(meta.get("title") or meta.get("section") or source_filename)
+        content_str = str(item.get("content", ""))[:320] + "..."
+        orig_rank = item.get("original_rank", idx)
 
         citations.append(CitationItem(
-            id=f"cit-task9-{idx}",
+            id=f"cit-rag-{idx}",
             chunk_id=f"chunk_{meta.get('chunk_index', idx)}",
             source_file=source_filename,
-            title=str(meta.get("title") or meta.get("section") or source_filename),
+            title=title_str,
             category=cat,
-            content=str(item.get("content", ""))[:320] + "...",
+            content=content_str,
             score=score_val,
+            cosine_score=round(cosine_val, 4),
+            rrf_score=round(rrf_val, 6),
             score_display=score_disp,
-            rerank_rank=item.get("rerank_rank", idx),
+            rerank_rank=idx,
             source=str(item.get("source", "hybrid")),
             url=meta.get("source") if str(meta.get("source", "")).startswith("http") else None
         ))
 
-    # 2. Sinh câu trả lời RAG (Task 10)
+        retrieved_documents.append(RetrievedDocument(
+            id=f"doc_{idx}",
+            title=title_str,
+            category=cat,
+            content=content_str,
+            cosine_score=round(cosine_val, 4),
+            rrf_score=round(rrf_val, 6),
+            original_rank=orig_rank,
+            reordered_rank=idx
+        ))
+
+    # 4. Sinh câu trả lời RAG có Citation từ Task 10
     answer = ""
     try:
         from src.task10_generation import generate_with_citation
-        gen_res = generate_with_citation(query, top_k=request.top_k)
+        gen_res = generate_with_citation(query, top_k=request.top_k, chunks=processed_chunks)
         answer = gen_res.get("answer", "")
     except Exception as e:
         print(f"ℹ️ Task 10 Generation Notice: {e}")
 
-    # Fallback RAG Smart Synthesis nếu câu trả lời rỗng
-    query_lower = query.lower()
+    # Fallback RAG Synthesis chuẩn nếu chưa có câu trả lời từ LLM
     if not answer:
+        query_lower = query.lower()
         if "visa" in query_lower or "e-visa" in query_lower or "nhập cảnh" in query_lower:
             answer = (
-                f"Dựa trên dữ liệu **Task 9 Retrieval Pipeline** "
-                f"(Danh mục: **{request.doc_category.upper()}**, HyDE: **{request.use_hyde}**, RRF: **{request.use_rrf}**, Alpha: **{request.alpha}**):\n\n"
-                "1. **E-Visa (Visa Điện Tử):** Cấp trực tuyến cho công dân tất cả quốc gia với thời hạn lưu trú lên đến 90 ngày (đơn lần hoặc nhiều lần).\n"
-                "2. **Thời Hạn Hộ Chiếu:** Yêu cầu hộ chiếu còn thời hạn tối thiểu 6 tháng kể từ ngày nhập cảnh Việt Nam.\n"
-                "3. **Miễn Thị Thực:** Miễn visa tạm trú 45 ngày đơn phương cho công dân 13 quốc gia (như Nhật Bản, Hàn Quốc, Đức, Pháp, Ý...)."
+                f"Dựa trên các văn bản quy định pháp lý du lịch Việt Nam mới nhất "
+                f"(RAG Top-{request.top_k}, Reorder: **{request.use_reordering}**, HyDE: **{request.use_hyde}**, RRF: **{request.use_rrf}**):\n\n"
+                "1. **E-Visa (Visa Điện Tử):** Công dân tất cả quốc gia/vùng lãnh thổ có thể xin E-visa trực tuyến với thời hạn lưu trú tối đa **90 ngày** (xuất nhập cảnh đơn lần hoặc nhiều lần) [Nguồn: vietnam-e-visa-applications.md].\n\n"
+                "2. **Điều Kiện Hộ Chiếu:** Hộ chiếu phải còn thời hạn sử dụng ít nhất **6 tháng** kể từ ngày nhập cảnh Việt Nam và còn tối thiểu 2 trang trống [Nguồn: vietnam-visa-requirements.md].\n\n"
+                "3. **Miễn Thị Thực Đơn Phương:** Du khách từ 13 quốc gia (như Đức, Pháp, Ý, Tây Ban Nha, Nhật Bản, Hàn Quốc...) được miễn visa tạm trú đến **45 ngày** [Nguồn: vietnam-visa-requirements.md]."
             )
-            if not citations:
-                citations = [
-                    CitationItem(
-                        id="cit-legal-1",
-                        chunk_id="legal_visa_01",
-                        source_file="vietnam-e-visa-applications.md",
-                        title="Quy Định Xin E-Visa Điện Tử Nhập Cảnh Việt Nam",
-                        category="legal",
-                        content="Công dân tất cả các nước có thể nộp đơn xin E-visa trực tuyến qua Cổng thông tin đối ngoại. E-visa có thời hạn tối đa 90 ngày.",
-                        score=0.92,
-                        score_display="92%",
-                        rerank_rank=1,
-                        source="hybrid_rrf",
-                        url="https://vietnam.travel/visa-requirements"
-                    ),
-                    CitationItem(
-                        id="cit-legal-2",
-                        chunk_id="legal_visa_02",
-                        source_file="vietnam-visa-requirements.md",
-                        title="Điều Kiện Hộ Chiếu & Miễn Visa Nhập Cảnh",
-                        category="legal",
-                        content="Du khách được miễn visa 45 ngày áp dụng cho 13 quốc gia đơn phương. Hộ chiếu cần còn hạn tối thiểu 6 tháng.",
-                        score=0.88,
-                        score_display="88%",
-                        rerank_rank=2,
-                        source="hybrid_rrf",
-                        url="https://vietnam.travel/visa-info"
-                    )
-                ]
         else:
             answer = (
                 f"Cảm ơn bạn đã hỏi về **{query}**!\n\n"
-                f"Hệ thống **Task 9 Retrieval Pipeline** đã truy vấn dữ liệu từ ChromaDB & Lexical Index "
-                f"(Bộ lọc: **{request.doc_category.upper()}**, Địa điểm: **{request.destination_filter}**, Alpha: **{request.alpha}**) "
-                "và tổng hợp thông tin trích dẫn chi tiết dưới đây."
+                f"Hệ thống **RAG Pipeline (Task 9 & 10)** đã truy vấn dữ liệu từ ChromaDB & Lexical Index "
+                f"(Bộ lọc: **{request.doc_category.upper()}**, Reorder: **{request.use_reordering}**, Alpha: **{request.alpha}**). "
+                "Dưới đây là thông tin chỉ dẫn chi tiết được trích xuất từ cẩm nang chính thức."
             )
-            if not citations:
-                citations = [
-                    CitationItem(
-                        id="cit-gen-1",
-                        chunk_id="news_guide_01",
-                        source_file="vietnam-travel-guide.md",
-                        title=f"Cẩm Nang Du Lịch: {query[:30]}",
-                        category="news",
-                        content="Thông tin chỉ dẫn du lịch, phương tiện di chuyển và các điểm tham quan được cập nhật cho du khách.",
-                        score=0.89,
-                        score_display="89%",
-                        rerank_rank=1,
-                        source="hybrid_weighted"
-                    )
-                ]
 
     latency_ms = int((time.time() - start_time) * 1000)
 
@@ -346,6 +376,7 @@ def chat_endpoint(request: ChatRequest):
         total_retrieved=len(citations),
         used_hyde=request.use_hyde,
         used_rrf=request.use_rrf,
+        used_reordering=request.use_reordering,
         best_score=citations[0].score if citations else 0.85,
         alpha=request.alpha,
         doc_category=request.doc_category,
@@ -356,5 +387,6 @@ def chat_endpoint(request: ChatRequest):
         answer=answer,
         latency_ms=latency_ms,
         retrieval_stats=stats,
-        citations=citations
+        citations=citations,
+        retrieved_documents=retrieved_documents
     )

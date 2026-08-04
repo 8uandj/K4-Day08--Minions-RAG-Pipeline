@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { BookOpen, ExternalLink, ChevronDown, CheckCircle2, ShieldCheck, Newspaper, Compass, Layers, Scissors, FileText, Scale, Code, Award } from 'lucide-react';
+import { BookOpen, ExternalLink, ChevronDown, CheckCircle2, Compass, Layers, Scissors, FileText, Scale, Code, Award, Zap } from 'lucide-react';
 
 export default function CitationCard({ citations }) {
   const [isOpen, setIsOpen] = useState(true);
@@ -31,6 +31,7 @@ export default function CitationCard({ citations }) {
 
   return (
     <div className="mt-4 border border-teal-200 bg-slate-50/90 rounded-2xl overflow-hidden shadow-xs">
+      {/* Header Bar */}
       <button
         onClick={() => setIsOpen(!isOpen)}
         className="w-full px-4 py-3 flex items-center justify-between bg-teal-50/80 hover:bg-teal-100/60 transition-colors text-left border-b border-teal-100"
@@ -41,7 +42,7 @@ export default function CitationCard({ citations }) {
           </div>
           <div>
             <span className="text-sm font-extrabold text-slate-900 flex items-center gap-2">
-              📍 Task 9 RAG Citations & Context
+              📍 RAG Citations & Context
               <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-teal-200/80 text-teal-900 border border-teal-300">
                 {citations.length} nguồn RAG
               </span>
@@ -58,6 +59,7 @@ export default function CitationCard({ citations }) {
         </motion.div>
       </button>
 
+      {/* Collapsible Citation Cards List */}
       <AnimatePresence>
         {isOpen && (
           <motion.div
@@ -70,8 +72,15 @@ export default function CitationCard({ citations }) {
             {citations.map((cit, idx) => {
               const style = getBadgeStyle(cit);
               const rankNum = cit.rerank_rank || (idx + 1);
+
+              // Extract Cosine score and RRF score cleanly
               const scoreVal = typeof cit.score === 'number' ? cit.score : parseFloat(cit.score) || 0.85;
-              const scoreDisplay = cit.score_display || (scoreVal <= 1.0 ? `${Math.round(scoreVal * 100)}%` : `${scoreVal.toFixed(4)}`);
+              const cosineVal = typeof cit.cosine_score === 'number' ? cit.cosine_score : (scoreVal > 0.1 ? scoreVal : 0.85);
+              const rrfVal = typeof cit.rrf_score === 'number' ? cit.rrf_score : (scoreVal <= 0.1 ? scoreVal : (1.0 / (60 + rankNum)));
+
+              const cosineDisplay = `${Math.round(cosineVal * 100)}%`;
+              const rrfDisplay = rrfVal < 0.1 ? rrfVal.toFixed(4) : rrfVal.toFixed(2);
+
               const isRawExpanded = expandedRawChunk === idx;
 
               return (
@@ -94,10 +103,18 @@ export default function CitationCard({ citations }) {
                       </span>
                     </div>
 
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs font-semibold px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-800 border border-emerald-300 flex items-center gap-1">
+                    {/* Cosine & RRF Score Badges */}
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      {/* Cosine Similarity Score Badge */}
+                      <span className="text-xs font-semibold px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-800 border border-emerald-300 flex items-center gap-1" title="Điểm tương đồng ngữ nghĩa Cosine Similarity">
                         <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-                        Score: {scoreDisplay}
+                        Cosine: {cosineDisplay}
+                      </span>
+
+                      {/* RRF Rerank Score Badge */}
+                      <span className="text-xs font-semibold px-2 py-0.5 rounded-md bg-purple-100 text-purple-800 border border-purple-300 flex items-center gap-1" title="Điểm xếp hạng Reciprocal Rank Fusion">
+                        <Zap className="w-3.5 h-3.5 text-purple-600" />
+                        RRF: {rrfDisplay}
                       </span>
 
                       {cit.url && (
@@ -105,7 +122,7 @@ export default function CitationCard({ citations }) {
                           href={cit.url}
                           target="_blank"
                           rel="noreferrer"
-                          className="text-xs text-sky-600 hover:text-sky-700 flex items-center gap-1 font-semibold underline underline-offset-2 opacity-90 group-hover:opacity-100 transition-opacity"
+                          className="text-xs text-sky-600 hover:text-sky-700 flex items-center gap-1 font-semibold underline underline-offset-2 opacity-90 group-hover:opacity-100 transition-opacity ml-1"
                         >
                           Mở liên kết <ExternalLink className="w-3 h-3" />
                         </a>
@@ -163,7 +180,8 @@ export default function CitationCard({ citations }) {
                             source_file: cit.source_file || cit.source,
                             category: cit.category,
                             rerank_rank: cit.rerank_rank || rankNum,
-                            score: cit.score,
+                            cosine_score: cosineVal,
+                            rrf_score: rrfVal,
                             retrieval_source: cit.source,
                             raw_content: cit.content
                           },

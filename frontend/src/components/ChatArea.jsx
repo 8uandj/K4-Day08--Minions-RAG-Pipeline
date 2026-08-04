@@ -197,7 +197,7 @@ export default function ChatArea({
                 </div>
                 <div className="p-3.5 rounded-2xl bg-white border border-slate-200 text-xs text-slate-700 font-medium flex items-center gap-2 shadow-xs">
                   <Zap className="w-4 h-4 text-amber-500 animate-pulse" />
-                  Đang chạy Task 9 Retrieval Pipeline (HyDE + RRF + ChromaDB & BM25)...
+                  Đang chạy Retrieval Pipeline (HyDE + RRF + ChromaDB & BM25)...
                 </div>
               </div>
             )}

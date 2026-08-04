@@ -286,22 +286,43 @@ def load_documents() -> list[dict]:
 def chunk_documents(documents: list[dict]) -> list[dict]:
     """Split documents by Markdown headings, then enforce size and overlap."""
 
-    from langchain_text_splitters import (
-        MarkdownHeaderTextSplitter,
-        RecursiveCharacterTextSplitter,
-    )
+    try:
+        from langchain_text_splitters import (
+            MarkdownHeaderTextSplitter,
+            RecursiveCharacterTextSplitter,
+        )
 
-    header_splitter = MarkdownHeaderTextSplitter(
-        headers_to_split_on=HEADERS_TO_SPLIT_ON,
-        strip_headers=False,
-    )
-    size_splitter = RecursiveCharacterTextSplitter(
-        chunk_size=CHUNK_SIZE,
-        chunk_overlap=CHUNK_OVERLAP,
-        separators=["\n\n", "\n", ". ", "; ", ", ", " ", ""],
-        keep_separator=True,
-        length_function=len,
-    )
+        header_splitter = MarkdownHeaderTextSplitter(
+            headers_to_split_on=HEADERS_TO_SPLIT_ON,
+            strip_headers=False,
+        )
+        size_splitter = RecursiveCharacterTextSplitter(
+            chunk_size=CHUNK_SIZE,
+            chunk_overlap=CHUNK_OVERLAP,
+            separators=["\n\n", "\n", ". ", "; ", ", ", " ", ""],
+            keep_separator=True,
+            length_function=len,
+        )
+    except ImportError:
+        # Fallback if langchain_text_splitters is not installed
+        chunks: list[dict] = []
+        for document_index, document in enumerate(documents):
+            content = document.get("content", "")
+            step = CHUNK_SIZE - CHUNK_OVERLAP
+            for start in range(0, max(1, len(content)), step):
+                chunk_text = content[start:start + CHUNK_SIZE].strip()
+                if chunk_text:
+                    chunks.append({
+                        "content": chunk_text,
+                        "metadata": {
+                            **_scalar_metadata(document.get("metadata", {})),
+                            "document_index": document_index,
+                            "chunk_index": len(chunks),
+                            "section": str(document.get("metadata", {}).get("title", "document"))
+                        }
+                    })
+        return chunks
+
 
     chunks: list[dict] = []
     for document_index, document in enumerate(documents):
