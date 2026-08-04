@@ -300,10 +300,12 @@ def rerank_rrf(
             rrf_scores[key] = rrf_scores.get(key, 0.0) + 1.0 / (k + rank)
             if key not in content_map:
                 # Ranker đầu tiên nhìn thấy document này → giữ làm bản gốc
-                content_map[key] = item
+                content_map[key] = item.copy()
             else:
                 # Đã thấy ở ranker trước → ghi nhận thêm "found_in"
                 # để debug/audit biết document match ở những ranker nào.
+                if "cosine_score" in item and "cosine_score" not in content_map[key]:
+                    content_map[key]["cosine_score"] = item["cosine_score"]
                 found_in = content_map[key].get("found_in", [])
                 source = item.get("source") or item.get("metadata", {}).get("source", "unknown")
                 if source not in found_in:
@@ -315,6 +317,7 @@ def rerank_rrf(
     results = []
     for content, score in sorted_items[:top_k]:
         item = content_map[content].copy()
+        item["rrf_score"] = round(score, 6)
         item["score"] = round(score, 6)
         results.append(item)
     return results

@@ -44,28 +44,11 @@ _DOMAIN_EXPANSIONS = (
     (("ha noi",), "phố cổ Hồ Gươm ẩm thực Thăng Long"),
 )
 
-_LEGACY_TEST_QUERY_REWRITES = (
-    (("payment method", "payment methods"), "Vietnam e-visa and visa requirements"),
-    (("return refund", "refund policy", "return policy"), "Vietnam visa requirements and tourist policy"),
-    (("ecommerce", "seller listing"), "Vietnam tourism law and official travel policy"),
-    (("order tracking",), "getting around Vietnam travel guide"),
-)
-
 
 def _normalise(value: str) -> str:
     value = unicodedata.normalize("NFD", value.casefold())
     value = "".join(char for char in value if unicodedata.category(char) != "Mn")
     return re.sub(r"\s+", " ", value).strip()
-
-
-def _rewrite_legacy_test_query(query: str) -> str:
-    """Map starter e-commerce test queries into the selected travel domain."""
-
-    normalised = _normalise(query)
-    for markers, replacement in _LEGACY_TEST_QUERY_REWRITES:
-        if any(marker in normalised for marker in markers):
-            return replacement
-    return query
 
 
 def expand_query(query: str) -> list[str]:
@@ -96,26 +79,15 @@ def _empty_or_nested(values: Any, index: int) -> list[Any]:
     return list(values[index])
 
 
-def _lexical_fallback(query: str, top_k: int) -> list[dict]:
-    """Return sparse results when the OpenAI vector collection is not indexed."""
-
-    try:
-        from .task6_lexical_search import lexical_search
-
-        return lexical_search(query, top_k=top_k)
-    except Exception:
-        return []
-
-
 def semantic_search(query: str, top_k: int = 10) -> list[dict]:
-    """Search ChromaDB with OpenAI embeddings and sort by similarity.
+    """Search ChromaDB with BGE-M3 and return results sorted by similarity.
 
     Query expansion is enabled by default.  Each variant is embedded with the
-    same OpenAI embedding model used for indexing; duplicate chunks are fused
-    by keeping their best cosine similarity.
+    same BGE-M3 model used for indexing; duplicate chunks are fused by keeping
+    their best cosine similarity.
     """
 
-    query = _rewrite_legacy_test_query(query.strip())
+    query = query.strip()
     if not query:
         raise ValueError("query không được rỗng")
     if top_k <= 0:
@@ -124,16 +96,13 @@ def semantic_search(query: str, top_k: int = 10) -> list[dict]:
     try:
         collection = get_collection(create=False)
     except Exception:
-        return _lexical_fallback(query, top_k)
+        return []
     collection_size = collection.count()
     if collection_size == 0:
-        return _lexical_fallback(query, top_k)
+        return []
 
     queries = expand_query(query) if _query_expansion_enabled() else [query]
-    try:
-        embeddings = embed_texts(queries)
-    except Exception:
-        return _lexical_fallback(query, top_k)
+    embeddings = embed_texts(queries)
     per_query_limit = min(collection_size, max(top_k * 3, top_k))
     raw = collection.query(
         query_embeddings=embeddings,
