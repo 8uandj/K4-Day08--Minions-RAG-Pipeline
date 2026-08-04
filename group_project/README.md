@@ -69,20 +69,55 @@ Xem code mẫu (DeepEval/RAGAS/TruLens) chi tiết trong `README.md` gốc mục
 
 ## Kiến Trúc Hệ Thống
 
-```
-[Vẽ diagram kiến trúc ở đây]
-```
+Kiến trúc RAG gồm hai giai đoạn: lập chỉ mục tài liệu và xử lý câu hỏi.
 
----
+```mermaid
+flowchart LR
+    subgraph INDEXING[1. Indexing Pipeline]
+        DOC[Tài liệu Markdown<br/>kèm metadata]
+        CHUNK[Task 4<br/>Chunk theo heading<br/>size 1000, overlap 120]
+        EMB[Embedding Model]
+        CHROMA[(ChromaDB<br/>Dense Index)]
+        TFIDF[(TF-IDF<br/>Sparse Index)]
+        TOC[(Markdown TOC<br/>Structural Index)]
+
+        DOC --> CHUNK
+        CHUNK --> EMB --> CHROMA
+        CHUNK --> TFIDF
+        DOC --> TOC
+    end
+
+    subgraph RAG[2. RAG Query Pipeline]
+        direction TB
+        USER[User Query] --> T9[Task 9<br/>Retrieval Orchestrator]
+        T9 --> DENSE[Task 5<br/>Semantic Search<br/>Query Expansion]
+        T9 --> SPARSE[Task 6<br/>Lexical Search]
+        DENSE --> RRF[Task 7<br/>RRF Merge và Reranking]
+        SPARSE --> RRF
+        RRF --> CHECK{Dense cosine score<br/>đạt ngưỡng 0.15?}
+        CHECK -->|Có| TOPK[Top-k chunks]
+        CHECK -->|Không| PI[Task 8<br/>PageIndex hoặc<br/>Local Structural Search]
+        PI --> TOPK
+        TOPK --> REORDER[Task 10<br/>Reorder chống<br/>lost-in-the-middle]
+        REORDER --> PROMPT[Context + Source Labels<br/>+ User Query]
+        PROMPT --> LLM[LLM<br/>OpenAI hoặc OpenRouter]
+        LLM --> ANSWER[Câu trả lời<br/>có Citation]
+    end
+
+    CHROMA --> DENSE
+    TFIDF --> SPARSE
+    TOC --> PI
+```
 
 ## Phân Công Công Việc
 
 | Thành viên | MSSV | Nhiệm vụ | Trạng thái |
 |-----------|------|----------|------------|
-| | | | |
-| | | | |
-| | | | |
-| | | | |
+| Hoàng Duy Hưng | 2A202601908 | Team Leader & RAG Architect | Done |
+| Mai Văn Phương | 2A202601418 | Sparse Search & Advanced Reranking Dev | Done |
+| Sẻ Thế Hưng | 2A202601822 | Frontend & Chatbot Developer | Done |
+| Nguyễn Văn Đạt | 2A202601968 | Evaluation & QA Engineer | Done |
+| Nguyễn Đặng Thành Vinh | 2A202602021 | Data & Dense Search Dev | Done |
 
 ---
 
