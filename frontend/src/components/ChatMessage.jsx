@@ -26,7 +26,7 @@ export default function ChatMessage({ message }) {
     return parts.map((part, idx) => {
       if (part.startsWith('**') && part.endsWith('**')) {
         return (
-          <strong key={idx} className="font-extrabold text-teal-950 bg-teal-50/90 px-1.5 py-0.5 rounded border border-teal-200/80">
+          <strong key={idx} className="font-extrabold text-slate-900">
             {part.slice(2, -2)}
           </strong>
         );
