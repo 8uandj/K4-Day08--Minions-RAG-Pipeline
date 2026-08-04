@@ -85,6 +85,86 @@ ARTICLE_SOURCES: tuple[dict[str, Any], ...] = (
         "location": "Quy Nhơn",
         "categories": ["lịch trình", "ẩm thực", "địa chỉ quán", "chi phí"],
     },
+    {
+        "filename": "ha-noi-cam-nang-diem-den.json",
+        "url": "https://vietnam.travel/places-to-go/northern-vietnam/ha-noi",
+        "source_name": "Vietnam Tourism",
+        "source_type": "official_tourism_guide",
+        "location": "Hà Nội",
+        "categories": ["cẩm nang", "văn hóa", "ẩm thực", "tham quan"],
+    },
+    {
+        "filename": "ninh-binh-cam-nang-diem-den.json",
+        "url": "https://vietnam.travel/places-to-go/northern-vietnam/ninh-binh",
+        "source_name": "Vietnam Tourism",
+        "source_type": "official_tourism_guide",
+        "location": "Ninh Bình",
+        "categories": ["cẩm nang", "thiên nhiên", "di sản", "lịch trình"],
+    },
+    {
+        "filename": "sapa-cam-nang-diem-den.json",
+        "url": "https://vietnam.travel/places-to-go/northern-vietnam/sapa",
+        "source_name": "Vietnam Tourism",
+        "source_type": "official_tourism_guide",
+        "location": "Sa Pa",
+        "categories": ["cẩm nang", "trekking", "văn hóa", "thời tiết"],
+    },
+    {
+        "filename": "hoi-an-cam-nang-diem-den.json",
+        "url": "https://vietnam.travel/places-to-go/central-vietnam/hoi-an",
+        "source_name": "Vietnam Tourism",
+        "source_type": "official_tourism_guide",
+        "location": "Hội An",
+        "categories": ["cẩm nang", "di sản", "ẩm thực", "văn hóa"],
+    },
+    {
+        "filename": "hue-cam-nang-diem-den.json",
+        "url": "https://vietnam.travel/places-to-go/central-vietnam/hue",
+        "source_name": "Vietnam Tourism",
+        "source_type": "official_tourism_guide",
+        "location": "Huế",
+        "categories": ["cẩm nang", "di sản", "ẩm thực", "lịch sử"],
+    },
+    {
+        "filename": "nha-trang-cam-nang-diem-den.json",
+        "url": "https://vietnam.travel/places-to-go/central-vietnam/nha-trang",
+        "source_name": "Vietnam Tourism",
+        "source_type": "official_tourism_guide",
+        "location": "Nha Trang",
+        "categories": ["cẩm nang", "biển đảo", "ẩm thực", "nghỉ dưỡng"],
+    },
+    {
+        "filename": "phong-nha-cam-nang-diem-den.json",
+        "url": "https://vietnam.travel/places-to-go/central-vietnam/phong-nha",
+        "source_name": "Vietnam Tourism",
+        "source_type": "official_tourism_guide",
+        "location": "Phong Nha",
+        "categories": ["cẩm nang", "hang động", "thiên nhiên", "phiêu lưu"],
+    },
+    {
+        "filename": "ho-chi-minh-city-cam-nang-diem-den.json",
+        "url": "https://vietnam.travel/places-to-go/southern-vietnam/ho-chi-minh-city",
+        "source_name": "Vietnam Tourism",
+        "source_type": "official_tourism_guide",
+        "location": "TP. Hồ Chí Minh",
+        "categories": ["cẩm nang", "đô thị", "ẩm thực", "tham quan"],
+    },
+    {
+        "filename": "can-tho-cam-nang-diem-den.json",
+        "url": "https://vietnam.travel/places-to-go/southern-vietnam/can-tho",
+        "source_name": "Vietnam Tourism",
+        "source_type": "official_tourism_guide",
+        "location": "Cần Thơ",
+        "categories": ["cẩm nang", "sông nước", "chợ nổi", "ẩm thực"],
+    },
+    {
+        "filename": "phu-quoc-cam-nang-diem-den.json",
+        "url": "https://vietnam.travel/places-to-go/southern-vietnam/phu-quoc",
+        "source_name": "Vietnam Tourism",
+        "source_type": "official_tourism_guide",
+        "location": "Phú Quốc",
+        "categories": ["cẩm nang", "biển đảo", "nghỉ dưỡng", "tham quan"],
+    },
 )
 
 # Compatibility with the starter API and with students importing this name.
@@ -240,7 +320,9 @@ async def crawl_all() -> list[Path]:
 
     if len(outputs) < 5:
         details = "; ".join(str(error) for error in errors)
-        raise RuntimeError(f"Chỉ crawl thành công {len(outputs)}/7 bài. {details}")
+        raise RuntimeError(
+            f"Chỉ crawl thành công {len(outputs)}/{len(ARTICLE_SOURCES)} bài. {details}"
+        )
     print(f"✓ Crawl thành công {len(outputs)}/{len(ARTICLE_SOURCES)} bài")
     return outputs
 
