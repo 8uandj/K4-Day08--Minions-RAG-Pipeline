@@ -26,6 +26,7 @@ import os
 import sys
 import types
 import warnings
+from copy import deepcopy
 from contextlib import contextmanager
 from pathlib import Path
 from typing import Any
@@ -94,8 +95,10 @@ def evaluate_with_ragas(rag_pipeline, golden_dataset: list[dict]) -> dict:
 
     pip install ragas
     """
+    print("  Initializing RAGAS evaluator...", flush=True)
     evaluate, metrics, Dataset = _load_ragas_components()
     evaluator_llm, evaluator_embeddings = _build_ragas_models()
+    print("  ✓ RAGAS evaluator ready", flush=True)
 
     eval_data = {"question": [], "answer": [], "contexts": [], "ground_truth": []}
 
@@ -128,22 +131,7 @@ def evaluate_with_ragas(rag_pipeline, golden_dataset: list[dict]) -> dict:
 
 def _load_ragas_components():
     """Import RAGAS with compatibility for LangChain Community >= 0.4."""
-    # RAGAS 0.4.3 still imports the removed ChatVertexAI module even when the
-    # evaluator uses OpenAI. Provide the equivalent legacy type so importing
-    # unrelated OpenAI metrics does not fail.
-    vertex_module = "langchain_community.chat_models.vertexai"
-    if (
-        vertex_module not in sys.modules
-        and importlib.util.find_spec(vertex_module) is None
-    ):
-        try:
-            from langchain_community.llms.vertexai import VertexAI
-        except ImportError:
-            pass
-        else:
-            compatibility_module = types.ModuleType(vertex_module)
-            compatibility_module.ChatVertexAI = VertexAI
-            sys.modules[vertex_module] = compatibility_module
+    _install_ragas_compatibility()
 
     try:
         from datasets import Dataset
@@ -165,18 +153,46 @@ def _load_ragas_components():
             "dependencies from requirements.txt in a clean virtual environment."
         ) from exc
 
+    # The OpenAI-compatible RAGAS factory currently returns one generation per
+    # request.  Keep answer-relevancy strictness at one so RAGAS does not ask
+    # for three generations and then silently score only the single response.
+    relevancy_metric = deepcopy(answer_relevancy)
+    relevancy_metric.strictness = int(os.getenv("RAGAS_RELEVANCY_STRICTNESS", "1"))
+
     return evaluate, [
         faithfulness,
-        answer_relevancy,
+        relevancy_metric,
         context_recall,
         context_precision,
     ], Dataset
 
 
+def _install_ragas_compatibility() -> None:
+    """Provide the legacy VertexAI import expected by RAGAS 0.4.3."""
+    # RAGAS 0.4.3 still imports the removed ChatVertexAI module even when the
+    # evaluator uses OpenAI. Provide the equivalent legacy type so importing
+    # unrelated OpenAI metrics does not fail.
+    vertex_module = "langchain_community.chat_models.vertexai"
+    if (
+        vertex_module not in sys.modules
+        and importlib.util.find_spec(vertex_module) is None
+    ):
+        try:
+            from langchain_community.llms.vertexai import VertexAI
+        except ImportError:
+            pass
+        else:
+            compatibility_module = types.ModuleType(vertex_module)
+            compatibility_module.ChatVertexAI = VertexAI
+            sys.modules[vertex_module] = compatibility_module
+
+
 def _build_ragas_models():
     """Create RAGAS LLM/embedding clients for OpenAI or OpenRouter."""
+    _install_ragas_compatibility()
+    from langchain_openai import OpenAIEmbeddings as LangChainOpenAIEmbeddings
     from openai import OpenAI
-    from ragas.embeddings import OpenAIEmbeddings
+    from ragas.embeddings import LangchainEmbeddingsWrapper
     from ragas.llms import llm_factory
 
     openrouter_key = os.getenv("OPENROUTER_API_KEY")
@@ -205,10 +221,31 @@ def _build_ragas_models():
         if not embedding_model.startswith("openai/"):
             embedding_model = f"openai/{embedding_model}"
 
-    return (
-        llm_factory(model, client=client),
-        OpenAIEmbeddings(client=client, model=embedding_model),
-    )
+    # The legacy metrics used by ragas.evaluate() call embed_query() and
+    # embed_documents().  RAGAS' newer provider class only exposes
+    # embed_text()/embed_texts(), so use its LangChain compatibility wrapper.
+    embedding_kwargs = {
+        "api_key": api_key,
+        "model": embedding_model,
+        "request_timeout": float(os.getenv("OPENAI_TIMEOUT", "60")),
+        "max_retries": int(os.getenv("OPENAI_MAX_RETRIES", "2")),
+    }
+    if client_kwargs.get("base_url"):
+        embedding_kwargs["base_url"] = client_kwargs["base_url"]
+    # This compatibility wrapper is deprecated for the modern collections
+    # API, but is still required by the legacy metrics passed to evaluate(),
+    # which call embed_query()/embed_documents(). Hide only that known warning.
+    with warnings.catch_warnings():
+        warnings.filterwarnings(
+            "ignore",
+            message="LangchainEmbeddingsWrapper is deprecated.*",
+            category=DeprecationWarning,
+        )
+        evaluator_embeddings = LangchainEmbeddingsWrapper(
+            LangChainOpenAIEmbeddings(**embedding_kwargs)
+        )
+
+    return llm_factory(model, client=client), evaluator_embeddings
 
 
 # =============================================================================
@@ -260,6 +297,10 @@ class GenerationPipelineAdapter:
             "top_k": 5,
             "use_reranking": True,
             "alpha": 0.5,
+            # PageIndex charges for document uploads/retrieval. Evaluation is
+            # local by default; opt in explicitly with EVAL_USE_PAGEINDEX=1.
+            "use_pageindex_api": os.getenv("EVAL_USE_PAGEINDEX", "0").lower()
+            in {"1", "true", "yes", "on"},
             **config,
         }
 
