@@ -169,6 +169,22 @@ pip install chromadb
 - Ghi rõ embedding model nào, dimension bao nhiêu
 - Index thành công toàn bộ documents
 
+**Cấu hình đã triển khai:**
+
+- Tách theo heading bằng `MarkdownHeaderTextSplitter`, sau đó giới hạn
+  kích thước bằng `RecursiveCharacterTextSplitter`.
+- `CHUNK_SIZE=1000`, `CHUNK_OVERLAP=120` theo đơn vị ký tự mà splitter và
+  test của starter sử dụng.
+- Embedding multilingual `BAAI/bge-m3`, vector chuẩn hóa 1.024 chiều.
+- Chroma collection `smart_travel_docs`, cosine distance, lưu bền vững tại
+  `chroma_db/`.
+
+Chạy lại toàn bộ index (lần đầu sẽ tải model BGE-M3):
+
+```bash
+python -m src.task4_chunking_indexing
+```
+
 ---
 
 ### Task 5 — Semantic Search Module
@@ -188,6 +204,15 @@ def semantic_search(query: str, top_k: int = 10) -> list[dict]:
 - Input: query string + top_k
 - Output: danh sách chunks có score, sorted descending
 - Phải hoạt động được với embedding model đã chọn ở Task 4
+
+Module đã bổ sung query expansion song ngữ theo miền du lịch (bật mặc định)
+và fuse kết quả theo cosine similarity. Có thể tắt để so sánh A/B bằng
+`QUERY_EXPANSION=false`.
+
+```bash
+python -m src.task5_semantic_search
+pytest -q tests/test_individual.py::TestTask4 tests/test_individual.py::TestTask5
+```
 
 ---
 

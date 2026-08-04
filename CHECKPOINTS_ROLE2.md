@@ -1,4 +1,4 @@
-# Role 2 - Checkpoint 0 và 1
+# Role 2 - Checkpoint 0, 1 và 2
 
 ## Chủ đề
 
@@ -57,3 +57,29 @@ từ chối output quá ngắn hoặc thiếu URL nguồn.
 - Review: Traveloka GoLocal (bài trải nghiệm Quy Nhơn).
 - Mọi bản ghi đều giữ URL nguồn; thông tin giá/quán ăn có thể thay đổi
   và cần hiển thị ngày crawl khi trả lời người dùng.
+
+## Checkpoint 2 - Chunking, ChromaDB và semantic search
+
+Task 4 dùng pipeline chunking hai tầng:
+
+1. `MarkdownHeaderTextSplitter` giữ ngữ cảnh tiêu đề/section.
+2. `RecursiveCharacterTextSplitter` giới hạn `CHUNK_SIZE=1000` và
+   `CHUNK_OVERLAP=120` (đơn vị ký tự theo starter).
+
+Mỗi chunk giữ `source`, `location`, `category`, `year`, title, section và
+chỉ số chunk. Dense embedding dùng `BAAI/bge-m3` multilingual, 1.024 chiều,
+chuẩn hóa trước khi upsert vào Chroma collection `smart_travel_docs` với
+cosine distance.
+
+```bash
+python -m src.task4_chunking_indexing
+python -m src.task5_semantic_search
+pytest -q tests/test_individual.py::TestTask4 tests/test_individual.py::TestTask5
+```
+
+Task 5 trả về đúng schema `content`, `score`, `metadata`, sắp xếp score giảm
+dần. Query expansion song ngữ theo ngữ cảnh du lịch được bật mặc định để
+bonus; đặt `QUERY_EXPANSION=false` nếu cần chạy baseline không expansion.
+
+BGE-M3 chạy local nên Task 4–5 không cần OpenAI API key. Không ghi key vào
+`.env.example`, mã nguồn, log hoặc commit.
