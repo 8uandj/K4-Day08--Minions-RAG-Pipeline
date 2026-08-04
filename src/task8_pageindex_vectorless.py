@@ -233,7 +233,11 @@ def upload_documents() -> list[str]:
                     doc_ids.append(doc_id)
                     print(f"  ✓ Uploaded: {md_file.name} -> {doc_id}")
             except Exception as e:
-                # Một file lỗi không chặn các file khác
+                err_msg = str(e)
+                if "LimitReached" in err_msg or "InsufficientCredits" in err_msg or "Rate limit" in err_msg or "429" in err_msg:
+                    print("  ⚠ PageIndex API quota limit reached — switching to local structural search fallback.")
+                    return doc_ids
+                # Một file lỗi khác không chặn các file khác
                 print(f"  ⚠ Failed to upload {md_file.name}: {e}")
         return doc_ids
     except ImportError:
