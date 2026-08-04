@@ -68,11 +68,10 @@ export default function ParameterPanel({ ragParams, setRagParams, dbStatus, conf
           <Sliders className="w-3.5 h-3.5 text-teal-600" />
           RAG Pipeline Controls
         </span>
-        <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold border flex items-center gap-1 ${
-          isConnected
+        <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold border flex items-center gap-1 ${isConnected
             ? 'bg-emerald-100 text-emerald-800 border-emerald-300'
             : 'bg-amber-100 text-amber-800 border-amber-300'
-        }`}>
+          }`}>
           <span className={`w-1.5 h-1.5 rounded-full ${isConnected ? 'bg-emerald-500 animate-pulse' : 'bg-amber-500'}`} />
           BAAI/bge-m3
         </span>
@@ -82,11 +81,10 @@ export default function ParameterPanel({ ragParams, setRagParams, dbStatus, conf
       <div className="flex p-1 bg-white rounded-xl border border-slate-200 shadow-2xs text-[11px] font-bold">
         <button
           onClick={() => setActiveTab('retrieval')}
-          className={`flex-1 py-1.5 rounded-lg transition-all flex items-center justify-center gap-1 ${
-            activeTab === 'retrieval'
+          className={`flex-1 py-1.5 rounded-lg transition-all flex items-center justify-center gap-1 ${activeTab === 'retrieval'
               ? 'bg-teal-600 text-white shadow-xs'
               : 'text-slate-600 hover:text-slate-900'
-          }`}
+            }`}
         >
           <Layers className="w-3.5 h-3.5" />
           Pipeline
@@ -94,11 +92,10 @@ export default function ParameterPanel({ ragParams, setRagParams, dbStatus, conf
 
         <button
           onClick={() => setActiveTab('chunking')}
-          className={`flex-1 py-1.5 rounded-lg transition-all flex items-center justify-center gap-1 ${
-            activeTab === 'chunking'
+          className={`flex-1 py-1.5 rounded-lg transition-all flex items-center justify-center gap-1 ${activeTab === 'chunking'
               ? 'bg-teal-600 text-white shadow-xs'
               : 'text-slate-600 hover:text-slate-900'
-          }`}
+            }`}
         >
           <Scissors className="w-3.5 h-3.5" />
           Chunking
@@ -106,13 +103,12 @@ export default function ParameterPanel({ ragParams, setRagParams, dbStatus, conf
 
         <button
           onClick={() => setActiveTab('documents')}
-          className={`flex-1 py-1.5 rounded-lg transition-all flex items-center justify-center gap-1 ${
-            activeTab === 'documents'
+          className={`flex-1 py-1.5 rounded-lg transition-all flex items-center justify-center gap-1 ${activeTab === 'documents'
               ? 'bg-teal-600 text-white shadow-xs'
               : 'text-slate-600 hover:text-slate-900'
-          }`}
+            }`}
         >
-          <BookOpen className="w-3.5 h-3.5" />
+          <BookOpen className="w-3.5 h-3.5 ml-1.5" />
           Tài Liệu ({documentsList.length || 25})
         </button>
       </div>
@@ -136,11 +132,10 @@ export default function ParameterPanel({ ragParams, setRagParams, dbStatus, conf
                 <button
                   key={cat.id}
                   onClick={() => setRagParams((prev) => ({ ...prev, docCategory: cat.id }))}
-                  className={`p-1.5 rounded-lg border text-[10px] font-bold transition-all flex items-center justify-center gap-1 ${
-                    (ragParams.docCategory || 'all') === cat.id
+                  className={`p-1.5 rounded-lg border text-[10px] font-bold transition-all flex items-center justify-center gap-1 ${(ragParams.docCategory || 'all') === cat.id
                       ? 'bg-teal-700 text-white border-teal-700 shadow-xs'
                       : 'bg-white text-slate-700 border-slate-200 hover:border-teal-300'
-                  }`}
+                    }`}
                   title={cat.desc}
                 >
                   {cat.icon}
@@ -280,11 +275,10 @@ export default function ParameterPanel({ ragParams, setRagParams, dbStatus, conf
                 <button
                   key={m.id}
                   onClick={() => setRagParams((prev) => ({ ...prev, chunkingMethod: m.id }))}
-                  className={`p-2 rounded-xl border text-left text-xs transition-all ${
-                    (ragParams.chunkingMethod || 'Recursive Character') === m.id
+                  className={`p-2 rounded-xl border text-left text-xs transition-all ${(ragParams.chunkingMethod || 'Recursive Character') === m.id
                       ? 'border-teal-600 bg-teal-50/80 text-teal-900 shadow-2xs font-bold'
                       : 'border-slate-200 bg-white text-slate-600 hover:border-teal-200'
-                  }`}
+                    }`}
                 >
                   <div className="truncate font-bold">{m.label}</div>
                   <div className="text-[10px] text-slate-500 truncate mt-0.5">{m.desc}</div>
@@ -364,31 +358,28 @@ export default function ParameterPanel({ ragParams, setRagParams, dbStatus, conf
             <div className="flex gap-1 text-[10px] font-bold">
               <button
                 onClick={() => setDocCategoryFilter('all')}
-                className={`flex-1 py-1 rounded-lg border transition-all ${
-                  docCategoryFilter === 'all'
+                className={`flex-1 py-1 rounded-lg border transition-all ${docCategoryFilter === 'all'
                     ? 'bg-teal-700 text-white border-teal-700'
                     : 'bg-white text-slate-600 border-slate-200 hover:border-teal-200'
-                }`}
+                  }`}
               >
                 Tất cả ({documentsList.length})
               </button>
               <button
                 onClick={() => setDocCategoryFilter('news')}
-                className={`flex-1 py-1 rounded-lg border transition-all ${
-                  docCategoryFilter === 'news'
+                className={`flex-1 py-1 rounded-lg border transition-all ${docCategoryFilter === 'news'
                     ? 'bg-teal-700 text-white border-teal-700'
                     : 'bg-white text-slate-600 border-slate-200 hover:border-teal-200'
-                }`}
+                  }`}
               >
                 Cẩm nang ({documentsList.filter((d) => d.category === 'news').length})
               </button>
               <button
                 onClick={() => setDocCategoryFilter('legal')}
-                className={`flex-1 py-1 rounded-lg border transition-all ${
-                  docCategoryFilter === 'legal'
+                className={`flex-1 py-1 rounded-lg border transition-all ${docCategoryFilter === 'legal'
                     ? 'bg-teal-700 text-white border-teal-700'
                     : 'bg-white text-slate-600 border-slate-200 hover:border-teal-200'
-                }`}
+                  }`}
               >
                 Pháp lý ({documentsList.filter((d) => d.category === 'legal').length})
               </button>
@@ -417,11 +408,10 @@ export default function ParameterPanel({ ragParams, setRagParams, dbStatus, conf
                       <span className="truncate">{doc.title}</span>
                     </span>
                     <span
-                      className={`text-[9px] px-1.5 py-0.2 rounded font-bold shrink-0 border ${
-                        doc.category === 'legal'
+                      className={`text-[9px] px-1.5 py-0.2 rounded font-bold shrink-0 border ${doc.category === 'legal'
                           ? 'bg-sky-100 text-sky-900 border-sky-300'
                           : 'bg-emerald-100 text-emerald-900 border-emerald-300'
-                      }`}
+                        }`}
                     >
                       {doc.category === 'legal' ? 'Legal' : 'News'}
                     </span>
