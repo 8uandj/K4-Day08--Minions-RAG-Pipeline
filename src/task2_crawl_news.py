@@ -1,89 +1,249 @@
+"""Task 2 - Crawl travel guides and trusted travel articles.
+
+The crawler deliberately stores raw-ish JSON (metadata plus Markdown) in the
+landing zone.  It uses normal HTTP requests because all selected sources are
+public, server-rendered pages; a browser is unnecessary for these URLs.
+
+Run from the repository root::
+
+    python -m src.task2_crawl_news
 """
-Task 2 — Crawl bài viết/hướng dẫn hỗ trợ khách hàng về thương mại điện tử.
 
-Hướng dẫn:
-    1. Crawl tối thiểu 5 bài viết từ trung tâm trợ giúp công khai của một sàn TMĐT.
-    2. Sử dụng Crawl4AI hoặc thư viện crawling tương tự.
-    3. Lưu output vào data/landing/news/
-    4. Mỗi bài lưu 1 file JSON với metadata (url, title, date_crawled, content).
-
-Cài đặt:
-    pip install crawl4ai
-    playwright install chromium   # bắt buộc — pip install crawl4ai KHÔNG tự tải browser binary,
-                                   # thiếu bước này sẽ báo lỗi
-                                   # "BrowserType.launch: Executable doesn't exist"
-
-Gợi ý chủ đề: theo dõi đơn hàng, đổi phương thức thanh toán, bằng chứng hoàn tiền,
-mua hàng xuyên biên giới.
-
-Lưu ý: một số trang help center dùng JavaScript render (SPA) — nếu crawl về chỉ thấy
-tiêu đề mà không có nội dung, đổi sang bài viết khác cùng domain thay vì cố xử lý.
-"""
+from __future__ import annotations
 
 import asyncio
 import json
-from datetime import datetime
+import re
+from datetime import datetime, timezone
 from pathlib import Path
+from typing import Any
 
-DATA_DIR = Path(__file__).parent.parent / "data" / "landing" / "news"
+import requests
+from bs4 import BeautifulSoup
+from markdownify import markdownify as html_to_markdown
 
 
-def setup_directory():
-    """Tạo thư mục data/landing/news/ nếu chưa có."""
+PROJECT_DIR = Path(__file__).resolve().parent.parent
+DATA_DIR = PROJECT_DIR / "data" / "landing" / "news"
+
+# Six official tourism articles plus one first-person Traveloka guide give the
+# retriever coverage over itineraries, transport, food, etiquette and costs.
+ARTICLE_SOURCES: tuple[dict[str, Any], ...] = (
+    {
+        "filename": "ha-giang-loop-4-ngay.json",
+        "url": "https://vietnam.travel/things-to-do/ha-giang-loop-four-day-road-trip",
+        "source_name": "Vietnam Tourism",
+        "source_type": "official_tourism_guide",
+        "location": "Hà Giang",
+        "categories": ["lịch trình", "xe máy", "an toàn", "tiết kiệm"],
+    },
+    {
+        "filename": "ha-giang-kinh-nghiem-dia-phuong.json",
+        "url": "https://vietnam.travel/things-to-do/ha-giang-adventures",
+        "source_name": "Vietnam Tourism",
+        "source_type": "official_tourism_guide",
+        "location": "Hà Giang",
+        "categories": ["trải nghiệm", "văn hóa", "ẩm thực", "homestay"],
+    },
+    {
+        "filename": "da-nang-cam-nang-diem-den.json",
+        "url": "https://vietnam.travel/places-to-go/central-vietnam/da-nang",
+        "source_name": "Vietnam Tourism",
+        "source_type": "official_tourism_guide",
+        "location": "Đà Nẵng",
+        "categories": ["cẩm nang", "thời tiết", "di chuyển", "tham quan"],
+    },
+    {
+        "filename": "da-nang-foodie-guide.json",
+        "url": "https://vietnam.travel/things-to-do/foodie-guide-da-nang",
+        "source_name": "Vietnam Tourism",
+        "source_type": "official_tourism_guide",
+        "location": "Đà Nẵng",
+        "categories": ["ẩm thực", "đặc sản", "địa chỉ quán"],
+    },
+    {
+        "filename": "da-lat-cam-nang-diem-den.json",
+        "url": "https://vietnam.travel/places-to-go/central-vietnam/dalat",
+        "source_name": "Vietnam Tourism",
+        "source_type": "official_tourism_guide",
+        "location": "Đà Lạt",
+        "categories": ["cẩm nang", "thời tiết", "di chuyển", "tham quan"],
+    },
+    {
+        "filename": "am-thuc-duong-pho-viet-nam.json",
+        "url": "https://vietnam.travel/things-to-do/beginners-guide-vietnamese-street-food",
+        "source_name": "Vietnam Tourism",
+        "source_type": "official_tourism_guide",
+        "location": "Việt Nam",
+        "categories": ["ẩm thực", "văn hóa ứng xử", "an toàn thực phẩm"],
+    },
+    {
+        "filename": "quy-nhon-lich-trinh-mot-ngay.json",
+        "url": "https://www.traveloka.com/vi-vn/explore/destination/quy-nhon-co-gi-choi-trong-mot-ngay/59081",
+        "source_name": "Traveloka GoLocal",
+        "source_type": "travel_blogger_review",
+        "location": "Quy Nhơn",
+        "categories": ["lịch trình", "ẩm thực", "địa chỉ quán", "chi phí"],
+    },
+)
+
+# Compatibility with the starter API and with students importing this name.
+ARTICLE_URLS = [source["url"] for source in ARTICLE_SOURCES]
+
+
+def setup_directory() -> None:
+    """Create ``data/landing/news`` if needed."""
+
     DATA_DIR.mkdir(parents=True, exist_ok=True)
 
 
-# TODO: Điền danh sách URL bài viết cần crawl
-ARTICLE_URLS = [
-    # Ví dụ (trang công khai Shopee Vietnam):
-    # "https://help.shopee.vn/portal/4/article/...",
-]
+def _select_article_container(soup: BeautifulSoup) -> Any:
+    """Select the narrowest likely article container for known and new sites."""
+
+    selectors = (
+        "article",
+        "main article",
+        "main",
+        "[role='main']",
+        ".field--name-body",
+        ".article-content",
+        ".content-detail",
+    )
+    for selector in selectors:
+        element = soup.select_one(selector)
+        if element and len(element.get_text(" ", strip=True)) >= 500:
+            return element
+    return soup.body or soup
 
 
-async def crawl_article(url: str) -> dict:
+def _normalise_markdown(content: str) -> str:
+    content = content.replace("\xa0", " ")
+    content = re.sub(r"[ \t]+\n", "\n", content)
+    content = re.sub(r"\n{3,}", "\n\n", content)
+    return content.strip()
+
+
+def _crawl_sync(source: dict[str, Any], timeout: int = 45) -> dict[str, Any]:
+    response = requests.get(
+        source["url"],
+        timeout=timeout,
+        headers={
+            "User-Agent": (
+                "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
+                "AppleWebKit/537.36 Chrome/124 Safari/537.36"
+            ),
+            "Accept-Language": "vi,en;q=0.8",
+        },
+    )
+    response.raise_for_status()
+    response.encoding = response.apparent_encoding or response.encoding
+    soup = BeautifulSoup(response.text, "html.parser")
+
+    for tag in soup.select(
+        "script, style, noscript, svg, nav, footer, form, aside, iframe"
+    ):
+        tag.decompose()
+
+    title = next(
+        (
+            tag.get_text(" ", strip=True)
+            for tag in soup.find_all("h1")
+            if tag.get_text(" ", strip=True)
+        ),
+        "",
+    )
+    if not title:
+        open_graph_title = soup.select_one("meta[property='og:title']")
+        title = open_graph_title.get("content", "").strip() if open_graph_title else ""
+    if not title:
+        title_tag = soup.find("title")
+        title = (
+            title_tag.get_text(" ", strip=True) if title_tag else source["filename"]
+        )
+    container = _select_article_container(soup)
+    content_markdown = _normalise_markdown(
+        html_to_markdown(str(container), heading_style="ATX", strip=["img"])
+    )
+    if len(content_markdown) < 500:
+        raise ValueError(
+            f"Nội dung crawl từ {source['url']} quá ngắn "
+            f"({len(content_markdown)} ký tự)"
+        )
+
+    return {
+        "url": source["url"],
+        "title": title,
+        "date_crawled": datetime.now(timezone.utc).isoformat(),
+        "source_name": source["source_name"],
+        "source_type": source["source_type"],
+        "location": source["location"],
+        "categories": source["categories"],
+        "language": "vi" if "traveloka.com" in source["url"] else "en",
+        "crawl_method": "requests+beautifulsoup+markdownify",
+        "content_markdown": content_markdown,
+    }
+
+
+async def crawl_article(url: str | dict[str, Any]) -> dict[str, Any]:
+    """Crawl one article without blocking the asyncio event loop.
+
+    ``url`` may be a configured source mapping or one of ``ARTICLE_URLS`` for
+    backward compatibility with the starter function signature.
     """
-    Crawl một bài viết và trả về dict chứa metadata + content.
 
-    Returns:
-        {
-            "url": str,
-            "title": str,
-            "date_crawled": str (ISO format),
-            "content_markdown": str
-        }
-    """
-    from crawl4ai import AsyncWebCrawler
-
-    # TODO: Implement crawling logic
-    # async with AsyncWebCrawler() as crawler:
-    #     result = await crawler.arun(url=url)
-    #     return {
-    #         "url": url,
-    #         "title": result.metadata.get("title", "Unknown"),
-    #         "date_crawled": datetime.now().isoformat(),
-    #         "content_markdown": result.markdown,
-    #     }
-    raise NotImplementedError("Implement crawl_article")
+    if isinstance(url, str):
+        source = next(
+            (item for item in ARTICLE_SOURCES if item["url"] == url),
+            {
+                "filename": "article.json",
+                "url": url,
+                "source_name": "Unknown",
+                "source_type": "travel_article",
+                "location": "Unknown",
+                "categories": [],
+            },
+        )
+    else:
+        source = url
+    return await asyncio.to_thread(_crawl_sync, source)
 
 
-async def crawl_all():
-    """Crawl toàn bộ bài viết trong ARTICLE_URLS."""
+async def crawl_all() -> list[Path]:
+    """Crawl all configured articles and require at least five successes."""
+
     setup_directory()
+    semaphore = asyncio.Semaphore(3)
 
-    for i, url in enumerate(ARTICLE_URLS, 1):
-        print(f"[{i}/{len(ARTICLE_URLS)}] Crawling: {url}")
-        article = await crawl_article(url)
+    async def crawl_and_save(source: dict[str, Any]) -> Path:
+        async with semaphore:
+            print(f"Crawling: {source['url']}")
+            article = await crawl_article(source)
+            output_path = DATA_DIR / source["filename"]
+            output_path.write_text(
+                json.dumps(article, ensure_ascii=False, indent=2), encoding="utf-8"
+            )
+            print(f"  ✓ Saved: {output_path.name}")
+            return output_path
 
-        # Lưu file JSON
-        filename = f"article_{i:02d}.json"
-        filepath = DATA_DIR / filename
-        filepath.write_text(json.dumps(article, ensure_ascii=False, indent=2))
-        print(f"  ✓ Saved: {filepath}")
+    results = await asyncio.gather(
+        *(crawl_and_save(source) for source in ARTICLE_SOURCES),
+        return_exceptions=True,
+    )
+    outputs: list[Path] = []
+    errors: list[BaseException] = []
+    for source, result in zip(ARTICLE_SOURCES, results):
+        if isinstance(result, BaseException):
+            errors.append(result)
+            print(f"  ✗ {source['filename']}: {result}")
+        else:
+            outputs.append(result)
+
+    if len(outputs) < 5:
+        details = "; ".join(str(error) for error in errors)
+        raise RuntimeError(f"Chỉ crawl thành công {len(outputs)}/7 bài. {details}")
+    print(f"✓ Crawl thành công {len(outputs)}/{len(ARTICLE_SOURCES)} bài")
+    return outputs
 
 
 if __name__ == "__main__":
-    if not ARTICLE_URLS:
-        print("⚠ Hãy điền ARTICLE_URLS trước khi chạy!")
-        print("Gợi ý: tìm trang hướng dẫn/hỗ trợ khách hàng trên help center của sàn TMĐT")
-    else:
-        asyncio.run(crawl_all())
+    asyncio.run(crawl_all())

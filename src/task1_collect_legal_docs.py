@@ -1,57 +1,131 @@
-"""
-Task 1 — Thu thập văn bản chính sách thương mại điện tử / hỗ trợ khách hàng.
+"""Task 1 - Download official documents for the smart travel assistant.
 
-Hướng dẫn:
-    1. Tìm tối thiểu 3 văn bản chính sách (PDF/DOCX) từ trang chính thức của một sàn TMĐT.
-    2. Tải về và lưu vào data/landing/legal/
-    3. Đặt tên file rõ ràng, không dấu, mô tả đúng nội dung.
+The raw PDFs are intentionally kept in ``data/landing/legal``.  Although the
+starter repository calls this directory ``legal``, the project uses it for
+official, authoritative documents: tourism law and two national travel guides.
 
-Gợi ý nguồn (ví dụ trang công khai Shopee Vietnam — help.shopee.vn):
-    - https://help.shopee.vn/portal/4/article/77251 (Chính sách trả hàng và hoàn tiền)
-    - https://help.shopee.vn/portal/4/article/79198 (Phương thức thanh toán)
-    - https://help.shopee.vn/portal/4/article/77244 (Chính sách bảo mật)
+Run from the repository root::
 
-Gợi ý văn bản (chủ đề chính sách thương mại điện tử):
-    - Chính sách đổi trả/hoàn tiền (Returns/Refund Policy)
-    - Phương thức thanh toán (Payment Methods)
-    - Chính sách bảo mật (Privacy Policy)
-    - Quy định đăng bán sản phẩm cho người bán (Seller Listing Regulations)
-
-Nhớ gắn metadata `customer_role` (`buyer`/`seller`/`both`) cho từng tài liệu — yêu cầu riêng
-của K4 Variant (kế thừa từ Lab 07), cần thiết để viết benchmark query dùng metadata_filter.
-
-Lưu ý: một số trang help center dùng JavaScript render nội dung (SPA) — crawl về chỉ thấy
-tiêu đề mà không có nội dung thật. Đổi sang bài viết khác cùng domain thay vì cố xử lý,
-và chỉ dùng nguồn công khai/được phép chia sẻ.
+    python -m src.task1_collect_legal_docs
 """
 
+from __future__ import annotations
+
+import json
+from datetime import datetime, timezone
 from pathlib import Path
+from typing import Any
 
-DATA_DIR = Path(__file__).parent.parent / "data" / "landing" / "legal"
+import requests
 
 
-def setup_directory():
-    """Tạo thư mục data/landing/legal/ nếu chưa có."""
+PROJECT_DIR = Path(__file__).resolve().parent.parent
+DATA_DIR = PROJECT_DIR / "data" / "landing" / "legal"
+MANIFEST_PATH = DATA_DIR / "manifest.json"
+
+# Use direct PDF links from official Vietnamese government websites.  Keeping
+# the URLs in code makes the landing dataset auditable and reproducible.
+DOCUMENT_SOURCES: tuple[dict[str, str], ...] = (
+    {
+        "document_id": "luat-du-lich-09-2017-qh14",
+        "filename": "luat-du-lich-09-2017-qh14.pdf",
+        "title": "Luật Du lịch số 09/2017/QH14",
+        "authority": "Quốc hội nước Cộng hòa Xã hội Chủ nghĩa Việt Nam",
+        "url": "https://congbaocdn.chinhphu.vn/CongBaoCP/VanBan/2017/7/24641/19163-1-2017695-69605-vbhn-vpqh.pdf",
+        "topic": "quyền và nghĩa vụ của khách du lịch; quản lý hoạt động du lịch",
+        "language": "vi",
+        "source_type": "official_legal_document",
+    },
+    {
+        "document_id": "adventure-trails-vietnam",
+        "filename": "cam-nang-cung-duong-phieu-luu-viet-nam.pdf",
+        "title": "Adventure Trails Vietnam",
+        "authority": "Cục Du lịch Quốc gia Việt Nam (Vietnam Tourism)",
+        "url": "https://vietnam.travel/sites/default/files/2021-04/Adventure_Trails_Vietnam.pdf",
+        "topic": "lịch trình gợi ý; di chuyển; du lịch phiêu lưu theo vùng",
+        "language": "en",
+        "source_type": "official_tourism_guide",
+    },
+    {
+        "document_id": "cam-nang-du-lich-ben-vung-viet-nam",
+        "filename": "cam-nang-du-lich-ben-vung-viet-nam.pdf",
+        "title": "A Sustainable Travel Guide to Viet Nam",
+        "authority": "Cục Du lịch Quốc gia Việt Nam (Vietnam Tourism)",
+        "url": "https://vietnam.travel/sites/default/files/2020-09/Sustainable-Travel-Guide.pdf",
+        "topic": "du lịch có trách nhiệm; văn hóa ứng xử; hỗ trợ cộng đồng địa phương",
+        "language": "en",
+        "source_type": "official_tourism_guide",
+    },
+)
+
+
+def setup_directory() -> None:
+    """Create the raw-document directory when it does not exist."""
+
     DATA_DIR.mkdir(parents=True, exist_ok=True)
     print(f"✓ Thư mục đã sẵn sàng: {DATA_DIR}")
 
 
-# TODO: Tải file PDF/DOCX về DATA_DIR
-# Có thể tải thủ công hoặc viết script download nếu có direct link.
-#
-# Ví dụ nếu có direct link:
-#
-# import requests
-#
-# def download_file(url: str, filename: str):
-#     response = requests.get(url)
-#     filepath = DATA_DIR / filename
-#     filepath.write_bytes(response.content)
-#     print(f"✓ Đã tải: {filepath}")
-#
-# Nếu trang là HTML thuần (không phải PDF sẵn), có thể convert nội dung text
-# thành PDF đơn giản bằng thư viện fpdf2 (đã có trong requirements.txt).
+def _validate_pdf(content: bytes, source: dict[str, str]) -> None:
+    """Reject HTML error pages and suspiciously small downloads."""
+
+    if len(content) <= 1024:
+        raise ValueError(f"{source['filename']} quá nhỏ ({len(content)} bytes)")
+    if not content.lstrip().startswith(b"%PDF"):
+        preview = content[:80].decode("utf-8", errors="replace")
+        raise ValueError(
+            f"{source['url']} không trả về PDF (nội dung đầu: {preview!r})"
+        )
+
+
+def download_document(
+    source: dict[str, str], *, overwrite: bool = False, timeout: int = 60
+) -> dict[str, Any]:
+    """Download one official PDF and return its manifest record."""
+
+    output_path = DATA_DIR / source["filename"]
+    if output_path.exists() and not overwrite:
+        content = output_path.read_bytes()
+        _validate_pdf(content, source)
+        print(f"→ Giữ file đã có: {output_path.name}")
+    else:
+        response = requests.get(
+            source["url"],
+            timeout=timeout,
+            headers={"User-Agent": "Minions-RAG-Travel-Student-Project/1.0"},
+        )
+        response.raise_for_status()
+        content = response.content
+        _validate_pdf(content, source)
+        temp_path = output_path.with_suffix(".pdf.part")
+        temp_path.write_bytes(content)
+        temp_path.replace(output_path)
+        print(f"✓ Đã tải: {output_path.name} ({len(content):,} bytes)")
+
+    return {
+        **source,
+        "local_path": str(output_path.relative_to(PROJECT_DIR)),
+        "size_bytes": len(content),
+        "language": source.get("language", "vi"),
+        "source_type": source.get("source_type", "official_document"),
+        "retrieved_at": datetime.now(timezone.utc).isoformat(),
+    }
+
+
+def collect_all(*, overwrite: bool = False) -> list[dict[str, Any]]:
+    """Download all configured sources and write an auditable manifest."""
+
+    setup_directory()
+    records = [
+        download_document(source, overwrite=overwrite)
+        for source in DOCUMENT_SOURCES
+    ]
+    MANIFEST_PATH.write_text(
+        json.dumps(records, ensure_ascii=False, indent=2), encoding="utf-8"
+    )
+    print(f"✓ Manifest: {MANIFEST_PATH}")
+    return records
 
 
 if __name__ == "__main__":
-    setup_directory()
+    collect_all()

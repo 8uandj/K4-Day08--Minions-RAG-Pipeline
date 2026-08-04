@@ -1,6 +1,6 @@
 ---
-title: E-commerce Support RAG Chatbot
-emoji: 🛒
+title: Smart Vietnam Travel Assistant
+emoji: 🧳
 colorFrom: blue
 colorTo: indigo
 sdk: streamlit
@@ -13,21 +13,27 @@ pinned: false
 
 **Chương 2 | Ngày 8 trong 15**
 
-> Dùng chung chủ đề "E-commerce Policy / Customer Support" với biến thể K4 của Ngày 7 (`K4_VARIANT.md`), để pipeline Ngày 7 → Ngày 8 nhất quán.
+> Đề tài nhóm: **Trợ lý Hướng dẫn viên Du lịch Thông minh**.
 
 ---
 
 ## Mục Tiêu
 
-Xây dựng một RAG pipeline thực tế, end-to-end, từ thu thập dữ liệu chính sách thương mại điện tử và hỗ trợ khách hàng → xử lý → indexing → retrieval (hybrid + vectorless fallback) → generation có citation.
+Xây dựng một RAG pipeline end-to-end, từ thu thập cẩm nang du lịch
+và bài review đáng tin cậy → chuẩn hóa → indexing → retrieval (hybrid +
+vectorless fallback) → generation có citation.
 
 ---
 
 ## Chủ Đề Dữ Liệu
 
-**Chính sách thương mại điện tử** (thanh toán, đổi trả/hoàn tiền, quy định người bán, quyền riêng tư) + **Hướng dẫn hỗ trợ khách hàng** (theo dõi đơn hàng, bằng chứng hoàn tiền, thay đổi phương thức thanh toán)
+**Du lịch tự túc tại Việt Nam**: lịch trình theo địa phương, ẩm thực và
+địa chỉ quán, văn hóa ứng xử, an toàn và mẹo tiết kiệm chi phí.
 
-Dữ liệu mẫu trong repo được crawl thật từ trang trung tâm trợ giúp công khai của **Shopee Vietnam** (help.shopee.vn) — xem chi tiết URL nguồn trong `src/task1_collect_legal_docs.py` và `src/task2_crawl_news.py`.
+Dữ liệu trong repo được lấy từ Cổng Thông tin/Công báo Chính phủ,
+website chính thức của Cục Du lịch Quốc gia Việt Nam và Traveloka GoLocal.
+Mỗi tài liệu đều giữ URL nguồn và metadata; xem
+`src/task1_collect_legal_docs.py` và `src/task2_crawl_news.py`.
 
 ---
 
@@ -69,43 +75,36 @@ K4-Day08-RAG-Pipeline-Starter/
 
 ## Nhiệm Vụ Chi Tiết
 
-### Task 1 — Thu Thập Văn Bản Chính Sách Thương Mại Điện Tử
+### Task 1 — Thu Thập Tài Liệu Du Lịch Gốc
 
-Tìm và tải về **tối thiểu 3 văn bản chính sách/quy định** dạng PDF/DOCX về chính sách thương mại điện tử. Lưu vào `data/landing/`.
+Tải **tối thiểu 3 tài liệu gốc** dạng PDF/DOCX về pháp luật du lịch,
+lịch trình và du lịch bền vững. Lưu vào `data/landing/legal/` (tên thư
+mục được giữ theo starter).
 
-**Gợi ý nguồn** (ví dụ trang công khai Shopee Vietnam — help.shopee.vn):
-- Chính sách trả hàng và hoàn tiền (Returns & Refund Policy)
-- Phương thức thanh toán (Payment Methods)
-- Chính sách bảo mật (Privacy Policy)
-- Quy định đăng bán sản phẩm cho người bán (Product Listing Regulations)
+**Nguồn đã chọn:** Luật Du lịch 09/2017/QH14, *Adventure Trails Vietnam*
+và *A Sustainable Travel Guide to Viet Nam*.
 
 **Yêu cầu:**
-- Lưu file gốc (PDF/DOCX) vào `data/landing/legal/`
-- Đặt tên file rõ ràng: `returns-refund-policy-shopee.pdf`, `payment-methods-shopee.pdf`, ...
+- Lưu file gốc (PDF/DOCX) vào `data/landing/legal/`.
+- Ghi manifest gồm URL, đơn vị phát hành, chủ đề và thời gian tải.
 
 ---
 
-### Task 2 — Crawl Bài Viết/Thông Báo
+### Task 2 — Crawl Cẩm Nang/Bài Review Du Lịch
 
-Crawl **tối thiểu 5 bài viết** hướng dẫn hỗ trợ khách hàng (theo dõi đơn hàng, đổi phương thức thanh toán, bằng chứng hoàn tiền, mua hàng xuyên biên giới).
+Crawl **tối thiểu 5 bài viết** về Hà Giang, Đà Nẵng, Đà Lạt,
+Quy Nhơn và ẩm thực/văn hóa ứng xử.
 
-**Thư viện khuyến nghị:** [Crawl4AI](https://github.com/unclecode/crawl4ai)
+**Thư viện:** Requests + BeautifulSoup + Markdownify (các trang đã chọn đều
+server-rendered, không cần khởi động trình duyệt).
 
 **Yêu cầu:**
 - Lưu output vào `data/landing/news/`
 - Mỗi bài báo lưu thành 1 file (JSON hoặc HTML)
 - Ghi rõ metadata: URL gốc, ngày crawl, tiêu đề bài báo
 
-**Code mẫu (Crawl4AI):**
-```python
-from crawl4ai import AsyncWebCrawler
-
-async def crawl_article(url: str, output_dir: str):
-    async with AsyncWebCrawler() as crawler:
-        result = await crawler.arun(url=url)
-        # Lưu result.markdown vào file
-        ...
-```
+Mỗi JSON có `url`, `title`, `date_crawled`, `source_name`, `location`,
+`categories` và `content_markdown`.
 
 ---
 
@@ -125,11 +124,8 @@ from markitdown import MarkItDown
 md = MarkItDown()
 
 # Convert PDF
-result = md.convert("data/landing/legal/returns-refund-policy-shopee.pdf")
+result = md.convert("data/landing/legal/luat-du-lich-09-2017-qh14.pdf")
 print(result.text_content)
-
-# Convert DOCX
-result = md.convert("data/landing/legal/product-listing-regulations-shopee.docx")
 ```
 
 **Lưu ý:** MarkItDown cần cài thêm extra `pip install "markitdown[pdf]"` để convert được file
@@ -138,7 +134,7 @@ PDF — nếu chỉ `pip install markitdown` sẽ báo lỗi `MissingDependencyE
 **Yêu cầu:**
 - Output lưu vào `data/standardized/`
 - Giữ nguyên cấu trúc thư mục con (`legal/`, `news/`)
-- Mỗi file output có tên tương ứng: `returns-refund-policy-shopee.md`
+- Mỗi file output có tên tương ứng và YAML front matter phục vụ citation.
 
 ---
 
